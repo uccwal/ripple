@@ -15,20 +15,21 @@ load_dotenv(REPO_ROOT / ".env")
 
 def _float(name: str, default: float) -> float:
     try:
-        return float(os.getenv(name, default))
+        return float(os.getenv(name) or default)
     except ValueError:
         return default
 
 
 @dataclass(frozen=True)
 class Settings:
-    database_url: str = os.getenv("DATABASE_URL", f"sqlite:///{REPO_ROOT / 'ripple.db'}")
+    # .env 에 빈 값으로 적혀 있어도 기본값을 쓴다
+    database_url: str = os.getenv("DATABASE_URL") or f"sqlite:///{REPO_ROOT / 'ripple.db'}"
     anthropic_api_key: str | None = os.getenv("ANTHROPIC_API_KEY") or None
     # LLM_MODE=offline 이면 API 키가 있어도 LLM을 호출하지 않는다 (규칙 기반 Agent로 실행).
     llm_mode_override: str | None = os.getenv("LLM_MODE") or None
-    model_default: str = os.getenv("MODEL_DEFAULT", "claude-haiku-5-5")
-    model_impact_mapper: str = os.getenv("MODEL_IMPACT_MAPPER") or os.getenv("MODEL_DEFAULT", "claude-haiku-5-5")
-    llm_timeout_s: float = _float("LLM_TIMEOUT_S", 60.0)
+    model_default: str = os.getenv("MODEL_DEFAULT") or "claude-haiku-5-5"
+    model_impact_mapper: str = os.getenv("MODEL_IMPACT_MAPPER") or os.getenv("MODEL_DEFAULT") or "claude-haiku-5-5"
+    llm_timeout_s: float = _float("LLM_TIMEOUT_S", 120.0)
 
     # 재시도 상한 (설계서 2장)
     max_retry_impact: int = 2
@@ -40,7 +41,7 @@ class Settings:
     hedge_rate_share: float = _float("HEDGE_RATE_SHARE", 0.25)
 
     # 팩터 회귀 창 (영업일)
-    beta_window_days: int = int(os.getenv("BETA_WINDOW_DAYS", "1250"))  # 약 5년
+    beta_window_days: int = int(os.getenv("BETA_WINDOW_DAYS") or 1250)  # 약 5년
     beta_min_obs: int = 250
 
     fred_api_key: str | None = os.getenv("FRED_API_KEY") or None
@@ -48,7 +49,7 @@ class Settings:
     data_go_kr_api_key: str | None = os.getenv("DATA_GO_KR_API_KEY") or None
 
     cors_origins: list[str] = field(
-        default_factory=lambda: os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+        default_factory=lambda: (os.getenv("CORS_ORIGINS") or "http://localhost:5173,http://127.0.0.1:5173").split(",")
     )
 
     @property

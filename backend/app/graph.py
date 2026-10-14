@@ -24,6 +24,7 @@ from .agents import event_analyst, impact_mapper, report_writer, scenario_builde
 from .config import settings
 from .db import SessionLocal
 from .engine import risk
+from .engine.catalog import FACTOR_BY_ID
 from .llm import LLMError
 from .util import utcnow
 from .models.state import AGENTS, RunState
@@ -74,10 +75,10 @@ def build(rc: RunContext):
         return {"event": event, "title": head + (f" ({event['value_text']})" if event["value_text"] else "")}
 
     def node_impact_mapper(state: RunState) -> dict:
-        rc.engine(state)
         attempt = state.get("retries", {}).get("impact", 0) + 1
         step = rc.steps.start("Impact Mapper", {"summary": "event + 과거 사례·거시 요약 통계" + (f" · 반려 사유 {len(rc.rejected_issues)}건 반영" if rc.rejected_issues else "")})
         try:
+            rc.engine(state)
             paths, graph, meta = impact_mapper.run(state, rc.stats, rc.holdings_summary(), rc.rejected_issues or None)
         except Exception as e:
             rc.steps.fail(step, str(e))
@@ -87,9 +88,9 @@ def build(rc: RunContext):
         return {"impact_paths": paths, "graph": graph}
 
     def node_scenario_builder(state: RunState) -> dict:
-        rc.engine(state)
         step = rc.steps.start("Scenario Builder", {"summary": f"impact_paths {len(state.get('impact_paths') or [])}개" if state["entry"] == "event" else f"자연어: {state['input_text']}"})
         try:
+            rc.engine(state)
             scenario, meta = scenario_builder.run(state, rc.stats)
         except Exception as e:
             rc.steps.fail(step, str(e))
@@ -99,9 +100,9 @@ def build(rc: RunContext):
         return {"scenario": scenario, "title": title}
 
     def node_regime_finder(state: RunState) -> dict:
-        ctx = rc.engine(state)
         step = rc.steps.start("Regime Finder", {"summary": f"scenario ({state['horizon_days']}영업일) · 충격 {len(state['scenario']['shocks'])}개"})
         try:
+            ctx = rc.engine(state)
             shocks = {s["variable"]: s["change"] for s in state["scenario"]["shocks"]}
             rc.regimes = risk.find_regimes(ctx, shocks)
         except Exception as e:
@@ -166,25 +167,36 @@ def build(rc: RunContext):
         return {"validation": v, "retries": retries, "rejections": rejections, "_reject_to": None}
 
     def node_report_writer(state: RunState) -> dict:
-        step = rc.steps.start("Report Writer", {"summary": "RunState 전체 · 수치 키 목록"})
-        try:
-            report, meta = report_writer.run(state)
-        except Exception as e:
-            rc.steps.fail(step, str(e))
-            raise
-        # R4: 보고서 수치 인용 검사
+        allowed = _allowed_literals(state)
         outputs = dict(state["calc_log"]["outputs"])
-        outputs["horizon"] = state["horizon_days"]
-        bad = validator.check_report(report["markdown"], outputs, state["horizon_days"], [state.get("input_text", "")]) + \
-              [f"알 수 없는 수치 키 '{k}'" for k in meta.get("unknown_keys", [])]
+        outputs.update(report_writer.extra_outputs(state))
+        rejected: list[str] = []
+        report = meta = None
+        bad: list[str] = []
+        for attempt in (1, 2):
+            step = rc.steps.start("Report Writer", {"summary": "RunState 전체 · 수치 키 목록" + (f" · 반려 사유 {len(rejected)}건" if rejected else "")})
+            try:
+                report, meta = report_writer.run(state, rejected or None)
+            except Exception as e:
+                rc.steps.fail(step, str(e))
+                raise
+            # R4: 보고서 수치 인용 검사. 위반이 있으면 사유를 주고 한 번 다시 쓰게 한다 (LLM 모드에서만 의미 있음)
+            bad = validator.check_report(report["markdown"], outputs, state["horizon_days"], allowed) + \
+                  [f"알 수 없는 수치 키 '{k}'" for k in meta.get("unknown_keys", [])]
+            if not bad or attempt == 2 or meta["model"] == "offline 규칙":
+                break
+            rc.steps.finish(step, {"summary": meta["summary"]}, meta["model"], meta["tokens"],
+                            f"수치 인용 검사 실패 {len(bad)}건 → 재작성")
+            rejected = bad
         v = dict(state["validation"])
         if bad:
             v = {**v, "issues": v["issues"] + [{"code": "report_uncited", "severity": "warn", "agent": "Report Writer",
                                                 "message": "보고서에 계산 로그와 연결되지 않은 수치가 있어 해당 문장을 제거했습니다: " + ", ".join(bad[:5])}]}
             v["status"] = "warn" if v["status"] == "pass" else v["status"]
-            report["markdown"] = _drop_uncited(report["markdown"], [state.get("input_text", "")])
+            report["markdown"] = _drop_uncited(report["markdown"], allowed)
         rc.steps.finish(step, {"summary": meta["summary"]}, meta["model"], meta["tokens"],
-                        ("수치 인용 검사: 미인용 수치 제거 " + str(len(bad)) + "건") if bad else "수치 인용 검사 통과")
+                        ("수치 인용 검사: 미인용 수치 제거 " + str(len(bad)) + "건") if bad else
+                        ("재작성 후 수치 인용 검사 통과" if rejected else "수치 인용 검사 통과"))
         return {"report": report, "validation": v}
 
     for name, fn in [("event_analyst", node_event_analyst), ("impact_mapper", node_impact_mapper),
@@ -217,6 +229,17 @@ def build(rc: RunContext):
     return g.compile()
 
 
+def _allowed_literals(state: RunState) -> list[str]:
+    """보고서 수치 검사에서 허용하는 리터럴: 사용자 입력, 이벤트 제목·핵심 수치, 노드 라벨, 자산·팩터 이름."""
+    ev = state.get("event") or {}
+    out = [state.get("input_text", ""), ev.get("title", ""), ev.get("value_text", ""), ev.get("announced_at", "")]
+    out += [n["label"] for n in (state.get("graph") or {}).get("nodes", [])]
+    out += [a["name"] for a in (state.get("result") or {}).get("by_asset", [])]
+    out += [f.name for f in FACTOR_BY_ID.values()]
+    out += [h["title"] for h in (state.get("result") or {}).get("hedges", [])]
+    return sorted({x for x in out if x}, key=len, reverse=True)
+
+
 def _drop_uncited(md: str, allowed: list[str] = ()) -> str:
     """미인용 숫자가 든 문장(마커 밖)을 제거한다. 표·제목·출처 줄은 유지."""
     import re
@@ -240,7 +263,7 @@ def _drop_uncited(md: str, allowed: list[str] = ()) -> str:
                 if lit:
                     x = x.replace(lit, "")
             return re.sub(r"<!--k:[^>]*-->.*?<!--/k-->|\d{4}-\d{2}-\d{2}|`[^`]*`", "", x)
-        kept = [s for s in sentences if not re.search(r"(?<![{\w.])\d", clean(s))]
+        kept = [s for s in sentences if not validator.NUM_RE.search(clean(s))]
         out.append(((prefix.group(0) if prefix else "") + " ".join(kept)) if re.search(r"\d", stripped) else line)
     return "\n".join(out)
 
@@ -254,6 +277,7 @@ def serializable(state: RunState) -> dict:
 def execute(run_id: str) -> None:
     session = SessionLocal()
     run = session.get(Run, run_id)
+    last: dict = dict(run.state)
     try:
         run.status = "running"
         session.commit()
@@ -273,21 +297,33 @@ def execute(run_id: str) -> None:
                 else:
                     rc.steps.skip(agent, "시나리오 직접 입력 — 해당 없음")
         app = build(rc)
-        final = app.invoke(state, config={"recursion_limit": 40})
-        run.state = serializable(final)
-        run.title = final.get("title") or run.title
-        run.status = "partial" if final.get("partial") else "done"
+        last = state
+        # stream_mode="values": 노드가 끝날 때마다 전체 상태를 받는다 → 실패해도 부분 결과를 남길 수 있다
+        for last in app.stream(state, config={"recursion_limit": 40}, stream_mode="values"):
+            pass
+        run.state = serializable(last)
+        run.title = last.get("title") or run.title
+        run.status = "partial" if last.get("partial") else "done"
     except (LLMError, ValueError) as e:
         log.warning("run %s failed: %s", run_id, e)
+        session.rollback()
         run.status = "failed"
         run.error = str(e)
+        run.state = serializable(last)
     except Exception as e:  # noqa: BLE001
         log.error("run %s crashed: %s\n%s", run_id, e, traceback.format_exc())
+        session.rollback()
         run.status = "failed"
         run.error = f"내부 오류: {type(e).__name__}: {e}"
+        run.state = serializable(last)
     finally:
-        run.finished_at = utcnow()
-        session.commit()
+        try:
+            run = session.merge(run)
+            run.finished_at = utcnow()
+            session.commit()
+        except Exception as e:  # noqa: BLE001
+            log.error("run %s: 종료 상태 저장 실패: %s", run_id, e)
+            session.rollback()
         runner.mark_done(run_id)
         timeline = runner.build_timeline(session, run)
         runner.publish(run_id, "run_finished", {"run_id": run_id, "status": run.status, "error": run.error,
@@ -322,6 +358,12 @@ def create_run(session: Session, entry: str, portfolio_id: str, event_id: str | 
                       "impact_paths": ps.get("impact_paths", []), "graph": ps.get("graph"), "title": ps.get("title", ""),
                       "resume_from": "regime_finder"})
         scenario = json.loads(json.dumps(ps["scenario"]))
+        present = {s["variable"] for s in scenario["shocks"]}
+        for var in (shock_overrides or {}):
+            if var not in present and var in FACTOR_BY_ID:  # 새 변수 추가
+                scenario["shocks"].append({"variable": var, "name": FACTOR_BY_ID[var].name, "change": 0.0,
+                                           "unit": FACTOR_BY_ID[var].unit, "basis": "사용자 추가값", "hist_max": None,
+                                           "hist_pct": None, "over_hist": False})
         for s in scenario["shocks"]:
             if s["variable"] in (shock_overrides or {}):
                 s["change"] = float(shock_overrides[s["variable"]])

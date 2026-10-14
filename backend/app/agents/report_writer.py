@@ -26,6 +26,8 @@ def _render_value(key: str, outputs: dict, scenario: dict) -> str:
         return f"{int(v)}개"
     if key == "horizon":
         return f"{int(v)}영업일"
+    if key in ("event.value_text", "event.date"):
+        return str(v)
     if key.startswith("fc:") and key.endswith(".share") or key.startswith("hedge.") or key.startswith("rule."):
         return f"{int(v)}%"
     if key.startswith("fc:"):
@@ -60,9 +62,9 @@ def substitute(text: str, outputs: dict, scenario: dict) -> tuple[str, list[str]
 def _offline_text(state: RunState) -> ReportText:
     r = state["result"]
     ev = state.get("event")
-    subject = f"{ev['country_name']} {ev['title']}" if ev else f"직접 입력 시나리오({state['input_text']})"
+    subject = f"정책 이벤트 '{ev['title']}'" if ev else f"직접 입력 시나리오 '{state['input_text']}'"
     reg = " 과거 유사 국면 {{reg.n}} 구간의 실제 손익 중앙값은 {{reg.median}}로, 팩터 모델 추정과 함께 참고한다." if r.get("regime_estimate") else ""
-    summary = (f"{subject}이(가) 가상 모델 포트폴리오에 미치는 {{{{horizon}}}} 영향을 팩터 모델로 추정한 결과 "
+    summary = (f"{subject}가 가상 모델 포트폴리오에 미치는 {{{{horizon}}}} 영향을 팩터 모델로 추정한 결과 "
                f"예상 손익은 {{{{pnl}}}}({{{{amt}}}})이며, 베타 추정오차를 반영한 범위는 {{{{range.low}}}} ~ {{{{range.high}}}}이다.{reg}")
     top = r["top_contributors"][0] if r["top_contributors"] else None
     top_name = next((a["name"] for a in r["by_asset"] if a["asset_id"] == top), "")
@@ -76,11 +78,22 @@ def _offline_text(state: RunState) -> ReportText:
     return ReportText(summary=summary, path_commentary=path_c, hedge_commentary=hedge_c)
 
 
-def run(state: RunState) -> tuple[dict, dict]:
+def extra_outputs(state: RunState) -> dict:
+    """계산 로그 외에 보고서가 인용할 수 있는 키: 분석 기간, 이벤트 핵심 수치·발표일."""
+    out = {"horizon": state["horizon_days"]}
+    ev = state.get("event") or {}
+    if ev.get("value_text"):
+        out["event.value_text"] = ev["value_text"]
+    if ev.get("announced_at"):
+        out["event.date"] = ev["announced_at"]
+    return out
+
+
+def run(state: RunState, rejected: list[str] | None = None) -> tuple[dict, dict]:
     r = state["result"]
     calc = state["calc_log"]
     outputs = dict(calc["outputs"])
-    outputs["horizon"] = state["horizon_days"]
+    outputs.update(extra_outputs(state))
     scenario = state["scenario"]
     ev = state.get("event")
 
@@ -91,7 +104,10 @@ def run(state: RunState) -> tuple[dict, dict]:
             f"[헤지 규칙 결과 — 문장에 쓸 때는 why_tpl/rule_tpl 의 자리표시자를 그대로 쓴다]\n{json.dumps(r['hedges'], ensure_ascii=False)}\n"
             f"[검증]\n{json.dumps(state.get('validation'), ensure_ascii=False)}\n"
             f"\n[수치 키 목록 — 반드시 이 키만 자리표시자로 사용]\n{key_list}")
-    res = llm.structured(prompts.REPORT_WRITER, user, ReportText, model=settings.model_default, effort="medium")
+    if rejected:
+        user += ("\n\n[반려] 이전 초안은 Validator가 반려했다. 아래 수치가 자리표시자 없이 쓰였다. "
+                 "숫자(연도·개수·퍼센트 포함)는 전부 {{키}} 로만 쓰고, 키가 없는 숫자는 문장에서 빼라.\n- " + "\n- ".join(rejected))
+    res = llm.structured(prompts.REPORT_WRITER, user, ReportText, model=settings.model_default, effort="low")
     if res.parsed is None:
         if res.error != "offline":
             raise llm.LLMError(res.error or "Report Writer 실패")

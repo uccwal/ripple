@@ -86,3 +86,15 @@ def test_validator_warns_but_passes_on_low_and_synthetic():
     v = validator.check(st, synthetic=True)
     assert v["passed"] and v["status"] == "warn"
     assert {i["code"] for i in v["issues"]} == {"low_evidence", "synthetic_data"}
+
+
+def test_check_report_catches_korean_counters_and_allows_literals():
+    assert validator.check_report("분석 기간은 20영업일이며 유사 구간 5개를 썼다.", {}, 20) != []
+    assert validator.check_report("자산 KOSPI 200과 미국 주식 (S&P 500)", {}, 20, allowed=["KOSPI 200", "미국 주식 (S&P 500)"]) == []
+    assert validator.check_report("손실 −1,240억 원", {}, 20) == ["출처 없는 수치 '−1,240'"]
+
+
+def test_parse_natural_won_weakness_is_fx_up():
+    assert parse_natural("원화 10% 하락") == {"USDKRW": 10.0}
+    assert parse_natural("원화 10% 급락") == {"USDKRW": 10.0}
+    assert parse_natural("원화 3% 절상") == {"USDKRW": -3.0}

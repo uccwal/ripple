@@ -44,13 +44,14 @@ def load_levels(session: Session, series_ids: list[str], as_of: date | None = No
     return wide.reindex(columns=series_ids)
 
 
-def series_meta(session: Session, series_ids: list[str]) -> dict[str, SeriesMeta]:
+def series_meta(session: Session, series_ids: list[str], as_of: date | None = None) -> dict[str, SeriesMeta]:
     out: dict[str, SeriesMeta] = {}
     for s in session.scalars(select(Series).where(Series.series_id.in_(series_ids))):
+        q = select(SeriesValue.date, SeriesValue.collected_at).where(SeriesValue.series_id == s.series_id)
+        if as_of is not None:
+            q = q.where(SeriesValue.date <= as_of)
         last = session.execute(
-            select(SeriesValue.date, SeriesValue.collected_at)
-            .where(SeriesValue.series_id == s.series_id)
-            .order_by(SeriesValue.date.desc())
+            q.order_by(SeriesValue.date.desc())
             .limit(1)
         ).first()
         out[s.series_id] = SeriesMeta(

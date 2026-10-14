@@ -103,3 +103,12 @@ def test_fmt_unicode_minus_and_signs():
     assert fmt.amount(-1237) == "−1,240억 원"
     assert fmt.signed(float("nan")) == "—"
     assert "−" in fmt.plain(-1.5)
+
+
+def test_top_contributors_by_absolute_value(session):
+    ctx = risk.prepare(session, "pf_a", None, 20)
+    out = risk.compute(ctx, {"USDKRW": -10.0}, [], "run_gain")  # 원화 강세 → 원화 자산 이익
+    r = out["result"]
+    tops = [abs(a["contribution"]) for a in r["by_asset"] if a["asset_id"] in r["top_contributors"]]
+    others = [abs(a["contribution"]) for a in r["by_asset"] if a["asset_id"] not in r["top_contributors"]]
+    assert min(tops) >= max(others)

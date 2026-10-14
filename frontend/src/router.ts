@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 export const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'events', component: () => import('@/views/EventsView.vue'), meta: { title: '정책 이벤트' } },
     { path: '/new', name: 'new', component: () => import('@/views/NewRunView.vue'), meta: { title: '새 분석' } },

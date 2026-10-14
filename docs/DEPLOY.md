@@ -1,6 +1,18 @@
 # 배포 가이드 (데모 URL 제출용)
 
-본선 제출물 "프로토타입(데모 URL)"은 실행 가능한 링크여야 한다. 아래 두 방식 중 하나를 쓴다.
+본선 제출물 "프로토타입(데모 URL)"은 실행 가능한 링크여야 한다. 아래 세 방식 중 하나를 쓴다.
+
+**GitHub Pages만으로는 안 된다.** Pages는 정적 파일만 호스팅하므로 프론트엔드는 올릴 수 있지만, Agent·계산·DB·Claude 호출을 하는 백엔드(Python)는 별도 서버가 필요하다. 가장 빠른 무료 조합은 **C. GitHub Pages(프론트) + Render(백엔드)** 다.
+
+## C. GitHub Pages + Render — 무료, 클릭 몇 번 (권장 시작점)
+
+이 저장소에 설정이 들어 있다: `.github/workflows/pages.yml`(프론트 → Pages), `render.yaml`(백엔드 + PostgreSQL → Render).
+
+1. **백엔드(Render)**: https://dashboard.render.com → New → **Blueprint** → `uccwal/ripple` 선택 → `render.yaml`이 읽힌다 → 환경 변수 `ANTHROPIC_API_KEY`(필수), `FRED_API_KEY`·`ECOS_API_KEY`·`DATA_GO_KR_API_KEY`(선택) 입력 → Apply. 몇 분 뒤 `https://ripple-api.onrender.com` 같은 URL이 생긴다. `…/healthz`가 `{"ok":true}`면 성공.
+2. **프론트엔드(Pages)**: 저장소 Settings → Pages → Source를 **GitHub Actions**로. Settings → Secrets and variables → Actions → **Variables** 탭 → `API_BASE_URL` = 1번에서 받은 URL. 그 다음 `main`에 푸시(또는 Actions 탭에서 "Deploy frontend to GitHub Pages" 수동 실행) → `https://uccwal.github.io/ripple/`.
+3. 백엔드 `CORS_ORIGINS`는 `render.yaml`에 `https://uccwal.github.io`로 들어 있다. 다른 도메인이면 Render 환경 변수에서 고친다.
+
+주의: Render 무료 플랜은 15분 동안 요청이 없으면 잠들어 첫 요청이 30~60초 걸린다. 심사 직전에 한 번 열어 깨우거나, 유료 플랜(월 7달러)으로 올린다. 무료 PostgreSQL은 90일 후 만료되므로 본선 기간(12월) 전에 생성하는 것이 좋다.
 
 ## A. Docker Compose (단일 VM) — 권장
 

@@ -13,7 +13,12 @@ import type {
   ScenarioPatchRequest,
 } from './types'
 
-export const API_BASE = '/api'
+/**
+ * API 베이스. 같은 서버에서 서빙하면 '/api'. 프론트엔드를 정적 호스팅(GitHub Pages 등)에 따로 올릴 때는
+ * 빌드 시 VITE_API_BASE=https://<api-host> 를 주면 '<api-host>/api' 로 요청한다.
+ */
+const apiHost = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '')
+export const API_BASE = `${apiHost}/api`
 
 /** 백엔드 오류. `status`가 0이면 네트워크 단절(백엔드 미기동 등). */
 export class ApiError extends Error {

@@ -3,6 +3,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
+  // 하위 경로 호스팅(GitHub Pages: /ripple/)은 VITE_BASE 로 지정한다
+  base: process.env.VITE_BASE || '/',
   plugins: [vue()],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },

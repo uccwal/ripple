@@ -135,7 +135,7 @@ def run(state: RunState, stats: dict, holdings_summary: list[dict], rejected_iss
     user = f"[정책 이벤트]\n{json.dumps(event, ensure_ascii=False)}\n\n{_stats_text(stats, event, holdings_summary)}"
     if rejected_issues:
         user += "\n\n" + prompts.IMPACT_MAPPER_RETRY.format(issues="\n".join(f"- {i}" for i in rejected_issues))
-    res = llm.structured(system, user, ImpactPaths, model=settings.model_impact_mapper, effort="high", max_tokens=12000)
+    res = llm.structured(system, user, ImpactPaths, model=settings.model_impact_mapper, effort="medium", max_tokens=16000)
     if res.parsed is None:
         if res.error != "offline":
             raise llm.LLMError(res.error or "Impact Mapper 실패")

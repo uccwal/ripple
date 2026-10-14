@@ -7,6 +7,7 @@ from statistics import median
 
 from .. import llm, prompts
 from ..config import settings
+from ..engine import fmt
 from ..engine.catalog import FACTOR_ALIASES, FACTOR_BY_ID, FACTOR_IDS
 from ..models.state import RunState, ScenarioShocks, ShockItem
 from .common import factor_list_text, model_label
@@ -36,7 +37,8 @@ def parse_natural(text: str) -> dict[str, float]:
         if fid == "USDKRW":
             # '원화 약세' = 환율 상승, '원화 강세' = 환율 하락, '달러 약세' = 환율 하락
             if "원화" in chunk:
-                sign = -1 if any(w in chunk for w in ("강세", "절상", "하락")) else 1
+                # '원화 약세/하락/급락' = 원화 가치 하락 = 환율 상승. '원화 강세/절상' 만 환율 하락
+                sign = -1 if any(w in chunk for w in ("강세", "절상")) else 1
             elif "달러" in chunk:
                 sign = -1 if any(w in chunk for w in ("약세", "하락")) else 1
             else:
@@ -63,7 +65,7 @@ def _offline_from_paths(state: RunState, stats: dict) -> ScenarioShocks:
         if vals:
             m = median(vals)
             mag = abs(m)
-            basis = f"{ev_type} 유형 과거 사례 {len(vals)}건 직후 {state['horizon_days']}영업일 변화 중앙값 ({m:+.2f}{FACTOR_BY_ID[fid].unit})"
+            basis = f"{ev_type} 유형 과거 사례 {len(vals)}건 직후 {state['horizon_days']}영업일 변화 중앙값 ({fmt.signed(m, 2, FACTOR_BY_ID[fid].unit)})"
         else:
             mag = 0.25 * stats["hist_max"].get(fid, 1.0)
             basis = "과거 사례 통계 없음 · 과거 최대 변동폭의 25%로 가정"

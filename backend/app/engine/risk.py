@@ -90,7 +90,7 @@ def prepare(session: Session, portfolio_id: str, as_of: date | None, horizon: in
         factor_ret=factor_returns(levels),
         asset_ret={h.asset_id: asset_returns(h, levels) for h in holdings},
         window_changes=factor_window_changes(levels, horizon),
-        meta=series_meta(session, sids),
+        meta=series_meta(session, sids, as_of),
     )
     for h in holdings:
         ctx.fits[h.asset_id] = fit_asset(h.asset_id, ctx.asset_ret[h.asset_id], ctx.factor_ret, list(h.factors),
@@ -126,9 +126,12 @@ def find_regimes(ctx: Context, shocks: dict[str, float]) -> list[Regime]:
     for r in regs:
         rets = {h.asset_id: window_return(ctx.asset_ret[h.asset_id], r.start, r.end) for h in ctx.holdings}
         r.asset_returns = rets
-        vals = [(h.weight / 100) * rets[h.asset_id] for h in ctx.holdings if not math.isnan(rets[h.asset_id])]
-        r.pnl = float(sum(vals)) if vals else float("nan")
-    return regs
+        # 한 자산이라도 데이터가 없는 구간은 손익을 내지 않는다 (일부 자산만 합산하면 편향)
+        if any(math.isnan(v) for v in rets.values()):
+            r.pnl = float("nan")
+        else:
+            r.pnl = float(sum((h.weight / 100) * rets[h.asset_id] for h in ctx.holdings))
+    return [r for r in regs if not math.isnan(r.pnl)]
 
 
 # ---------------------------------------------------------------- 손익 계산
@@ -166,7 +169,9 @@ def compute(ctx: Context, shocks: dict[str, float], regimes: list[Regime], run_i
     sector_contrib: dict[str, float] = {}
     sector_top: dict[str, str] = {}
     for a in sorted(by_asset, key=lambda a: a["contribution"]):
-        sector_contrib[a["sector"]] = sector_contrib.get(a["sector"], 0.0) + a["contribution"]
+        # 업종 규칙은 환율 효과를 뺀 기여로 판단한다 (환율은 별도 규칙)
+        non_fx = a["weight"] / 100 * sum(v for k, v in a["parts"].items() if FACTOR_BY_ID[k].group != "fx")
+        sector_contrib[a["sector"]] = sector_contrib.get(a["sector"], 0.0) + non_fx
         sector_top.setdefault(a["sector"], a["asset_id"])
     hedges = suggest(total, {f["factor_id"]: f["contribution"] for f in factor_rows}, sector_contrib, sector_top)
 
@@ -174,7 +179,7 @@ def compute(ctx: Context, shocks: dict[str, float], regimes: list[Regime], run_i
     regime_est = ({"median": float(median(pnls)), "low": float(min(pnls)), "high": float(max(pnls)), "n": len(pnls)}
                   if pnls else None)
 
-    top = sorted(by_asset, key=lambda a: a["contribution"])[:5]
+    top = sorted(by_asset, key=lambda a: -abs(a["contribution"]))[:5]  # 절댓값 기준 상위 5
     calc_id = "calc_" + uuid.uuid4().hex[:12]
     aum = ctx.portfolio.aum
     result = {
@@ -235,7 +240,7 @@ def _outputs(result: dict, regimes: list[Regime]) -> dict:
             out[f"fc:{f['factor_id']}.share"] = f["share"]
     for i, r in enumerate(regimes):
         out[f"regime.{i}.similarity"] = r.similarity
-        out[f"regime.{i}.pnl"] = r.pnl
+        out[f"regime.{i}.pnl"] = None if math.isnan(r.pnl) else r.pnl
     for h in result["hedges"]:
         out[f"hedge.{h['rule_id']}.share"] = round(h["share"] * 100)
     out["rule.fx"] = round(settings.hedge_fx_share * 100)

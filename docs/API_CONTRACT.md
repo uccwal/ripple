@@ -170,6 +170,7 @@
 
 | event | 시점 |
 | --- | --- |
+| `snapshot` | 연결 직후 현재 타임라인 전체 (실행 중일 때만) |
 | `step_started` | 단계 시작 |
 | `step_finished` | 단계 완료 |
 | `step_retry` | Validator 반려 → 대상 Agent 재실행 |
@@ -180,7 +181,7 @@
 {"run_id": "…", "status": "running", "elapsed_ms": 4200, "current": "Impact Mapper — 파급 경로 추론 (2차 시도)", "step": {/* 바뀐 Step */}, "steps": [/* Step 7개 */], "retry_loops": []}
 ```
 
-`run_finished` 수신 후 `GET /api/runs/{id}`로 전체 결과를 다시 받습니다.
+`run_finished` 수신 후 `GET /api/runs/{id}`로 전체 결과를 다시 받습니다. 이미 끝난 실행에 연결하면 `run_finished` 하나만 보내고 닫습니다. 15초마다 `: keep-alive` 주석을 보냅니다.
 
 ## PATCH `/api/runs/{id}/scenario`
 

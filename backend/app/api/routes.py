@@ -209,11 +209,14 @@ def get_run(run_id: str, s: Session = Depends(get_session)):
 
 @router.get("/runs/{run_id}/stream")
 async def stream_run(run_id: str):
+    q = runner.subscribe(run_id)  # 먼저 구독해야 상태 확인과 run_finished 사이의 틈을 놓치지 않는다
     with next(get_session()) as s:  # type: ignore[attr-defined]
         r = s.get(Run, run_id)
         if not r:
+            runner.unsubscribe(run_id, q)
             raise HTTPException(404, "실행 없음")
         if r.status in ("done", "partial", "failed"):
+            runner.unsubscribe(run_id, q)
             snapshot = {"run_id": run_id, "status": r.status, "error": r.error, "elapsed_ms": runner.elapsed_ms(r),
                         "current": None, "step": None, "steps": runner.build_timeline(s, r), "retry_loops": runner.retry_loops(s, r)}
 
@@ -222,8 +225,6 @@ async def stream_run(run_id: str):
             return StreamingResponse(done_gen(), media_type="text/event-stream", headers=_sse_headers())
         snapshot = {"run_id": run_id, "status": r.status, "elapsed_ms": runner.elapsed_ms(r), "current": None, "step": None,
                     "steps": runner.build_timeline(s, r), "retry_loops": runner.retry_loops(s, r)}
-
-    q = runner.subscribe(run_id)
 
     async def gen():
         try:

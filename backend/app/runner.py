@@ -37,6 +37,8 @@ def unsubscribe(run_id: str, q: asyncio.Queue) -> None:
     with _lock:
         if q in _subs.get(run_id, []):
             _subs[run_id].remove(q)
+        if run_id in _subs and not _subs[run_id]:
+            del _subs[run_id]
 
 
 def publish(run_id: str, event: str, data: dict) -> None:

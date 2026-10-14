@@ -62,7 +62,7 @@ def _strip_schema(schema: dict) -> dict:
 
 
 def structured(system: str, user: str, schema: type[T], model: str | None = None, effort: str = "medium",
-               max_tokens: int = 8000) -> LLMResult:
+               max_tokens: int = 16000) -> LLMResult:
     """JSON 스키마에 맞는 응답을 받아 schema 인스턴스로 검증한다."""
     if settings.llm_mode == "offline":
         return LLMResult(None, "offline", 0, 0, "offline")
@@ -71,13 +71,15 @@ def structured(system: str, user: str, schema: type[T], model: str | None = None
     model = model or settings.model_default
     json_schema = _strip_schema(schema.model_json_schema())
     try:
-        resp = client().messages.create(
+        # 스트리밍으로 받아 긴 응답(사고 토큰 포함)에서도 HTTP 타임아웃을 피한다
+        with client().messages.stream(
             model=model,
             max_tokens=max_tokens,
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": user}],
             output_config={"effort": effort, "format": {"type": "json_schema", "schema": json_schema}},
-        )
+        ) as stream:
+            resp = stream.get_final_message()
     except anthropic.RateLimitError as e:
         raise LLMError(f"Claude API 요청 한도 초과: {e.message}") from e
     except anthropic.APIConnectionError as e:

@@ -15,7 +15,8 @@ import re
 from ..engine.catalog import FACTOR_BY_ID
 from ..models.state import RunState
 
-NUM_RE = re.compile(r"(?<![{\w.])[+\-−]?\d[\d,]*(?:\.\d+)?(?![\w}])")
+# 한글은 \w 에 포함되므로 ASCII 영숫자만 경계로 본다 → "20영업일", "5개" 도 숫자로 잡힌다
+NUM_RE = re.compile(r"(?<![{A-Za-z0-9_.])[+\-−]?\d[\d,]*(?:\.\d+)?(?![A-Za-z0-9_}])")
 
 
 def check(state: RunState, synthetic: bool) -> dict:
@@ -78,7 +79,10 @@ def check(state: RunState, synthetic: bool) -> dict:
 
     errors = [i for i in issues if i["severity"] == "error"]
     rules_total = 4
-    rules_failed = len({i["code"].split("_")[0] for i in errors})
+    rule_of = {"path_shape": "R2", "macro_factor": "R2", "dangling_edge": "R2", "high_without_evidence": "R1",
+               "mid_without_evidence": "R1", "shock_not_in_path": "R2", "sum_mismatch": "R3", "range_mismatch": "R3",
+               "shock_mismatch": "R3", "nan_result": "R3", "no_result": "R3"}
+    rules_failed = len({rule_of.get(i["code"], i["code"]) for i in errors})
     return {
         "passed": not errors,
         "status": "fail" if errors else ("warn" if issues else "pass"),
