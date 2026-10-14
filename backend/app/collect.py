@@ -78,19 +78,54 @@ def _seconds_until(hour_utc: int) -> float:
     return (target - now).total_seconds()
 
 
+RETRY_HOURS = 2  # 합성 시계열이 남아 있거나 수집기가 실패하면 이 간격으로 다시 시도
+
+
+def synthetic_remaining() -> bool:
+    from sqlalchemy import func, select  # noqa: PLC0415
+
+    from .models.tables import Series  # noqa: PLC0415
+
+    with session_scope() as s:
+        return bool(s.scalar(select(func.count()).select_from(Series).where(Series.source.like("SYNTHETIC%"))))
+
+
+def _needs_retry() -> bool:
+    if _state.get("error"):
+        return True
+    if any(r["status"] == "error" for r in _state.get("reports", [])):
+        return True
+    try:
+        return synthetic_remaining()
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def start_scheduler() -> None:
-    """COLLECT_DAILY_HOUR_UTC 가 있으면 매일 그 시각에 수집한다."""
+    """COLLECT_DAILY_HOUR_UTC 가 있으면: 기동 직후 한 번, 그 뒤 매일 그 시각에 수집한다.
+    합성 시계열이 남아 있거나(= API 키·활용신청 미완료) 실패한 수집기가 있으면 2시간마다 다시 시도해,
+    키가 활성화되는 즉시 사람 손 없이 실데이터로 바뀐다."""
     hour = settings.collect_daily_hour_utc
     if hour is None:
         return
 
     def loop() -> None:
+        time.sleep(20)  # 서버가 뜬 뒤
+        first = True
         while True:
+            if first:
+                log.info("기동 수집 시작 (최근 %d일)", settings.collect_startup_days)
+                _safe_run(date.today() - timedelta(days=settings.collect_startup_days), None)
+                first = False
             wait = _seconds_until(hour)
+            if _needs_retry():
+                wait = min(wait, RETRY_HOURS * 3600)
             _state["next_scheduled_at"] = (datetime.now(timezone.utc) + timedelta(seconds=wait)).isoformat()
             time.sleep(wait)
-            log.info("예약 수집 시작 (%02d:00 UTC)", hour)
-            _safe_run(None, None)
+            log.info("예약 수집 시작")
+            # 아직 합성 데이터가 남은 시리즈는 전체 기간을 채워야 하므로 5년치부터
+            since = date.today() - timedelta(days=365 * 11) if _needs_retry() else None
+            _safe_run(since, None)
 
     threading.Thread(target=loop, daemon=True, name="collect-scheduler").start()
-    log.info("일일 수집 예약: 매일 %02d:00 UTC", hour)
+    log.info("수집 예약: 매일 %02d:00 UTC · 미완료 시 %d시간마다 재시도", hour, RETRY_HOURS)

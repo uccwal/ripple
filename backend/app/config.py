@@ -48,6 +48,8 @@ class Settings:
     admin_token: str | None = os.getenv("ADMIN_TOKEN") or None
     # 매일 자동 수집 시각 (UTC 시, 0~23). 비우면 자동 수집 안 함. 0 = 09:00 KST
     collect_daily_hour_utc: int | None = int(os.environ["COLLECT_DAILY_HOUR_UTC"]) if os.getenv("COLLECT_DAILY_HOUR_UTC") else None
+    # 서버 기동 직후 수집할 기간(일). 재배포마다 최근 데이터를 바로 채운다
+    collect_startup_days: int = int(os.getenv("COLLECT_STARTUP_DAYS") or 30)
 
     fred_api_key: str | None = os.getenv("FRED_API_KEY") or None
     ecos_api_key: str | None = os.getenv("ECOS_API_KEY") or None
