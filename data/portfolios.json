@@ -1,0 +1,234 @@
+{
+  "_note": "가상 모델 포트폴리오. 실제 기관의 보유내역이 아니며 시연·검증용으로 구성했다. 비중 단위 %, 운용자산(aum) 단위 억 원. 기준통화 USD(원화 자산은 원/달러로 환산한 손익). factors는 자산별 팩터 회귀에 쓰는 설명 변수 목록.",
+  "portfolios": [
+    {
+      "portfolio_id": "pf_a",
+      "name": "가상 모델 포트폴리오 A",
+      "base_currency": "USD",
+      "aum": 32300,
+      "description": "글로벌 자산배분형 · 국내 반도체 비중이 높은 성장형 구성",
+      "holdings": [
+        {
+          "asset_id": "KR_SEMI",
+          "name": "국내 반도체 대형주",
+          "asset_class": "주식",
+          "currency": "KRW",
+          "sector": "반도체",
+          "weight": 14,
+          "pricing": {
+            "series_id": "KR_SEMI"
+          },
+          "factors": [
+            "KOSPI_IT",
+            "USDKRW"
+          ]
+        },
+        {
+          "asset_id": "KR_K200",
+          "name": "KOSPI 200",
+          "asset_class": "주식",
+          "currency": "KRW",
+          "sector": "경기민감",
+          "weight": 10,
+          "pricing": {
+            "series_id": "KR_K200"
+          },
+          "factors": [
+            "KOSPI",
+            "USDKRW"
+          ]
+        },
+        {
+          "asset_id": "KR_AUTO",
+          "name": "국내 자동차",
+          "asset_class": "주식",
+          "currency": "KRW",
+          "sector": "자동차",
+          "weight": 7,
+          "pricing": {
+            "series_id": "KR_AUTO"
+          },
+          "factors": [
+            "KOSPI",
+            "USDKRW"
+          ]
+        },
+        {
+          "asset_id": "KTB3",
+          "name": "국고채 3년",
+          "asset_class": "채권",
+          "currency": "KRW",
+          "sector": "국채",
+          "weight": 8,
+          "pricing": {
+            "duration": 2.8,
+            "yield_series": "KTB3Y"
+          },
+          "factors": [
+            "KTB3Y",
+            "USDKRW"
+          ]
+        },
+        {
+          "asset_id": "US_EQ",
+          "name": "미국 주식 (S&P 500)",
+          "asset_class": "주식",
+          "currency": "USD",
+          "sector": "혼합",
+          "weight": 26,
+          "pricing": {
+            "series_id": "US_EQ"
+          },
+          "factors": [
+            "US_EQ",
+            "DGS10"
+          ]
+        },
+        {
+          "asset_id": "US_TECH",
+          "name": "미국 기술주 (나스닥 100)",
+          "asset_class": "주식",
+          "currency": "USD",
+          "sector": "반도체",
+          "weight": 6,
+          "pricing": {
+            "series_id": "US_TECH"
+          },
+          "factors": [
+            "US_EQ",
+            "KOSPI_IT"
+          ]
+        },
+        {
+          "asset_id": "UST10",
+          "name": "미국 국채 10년",
+          "asset_class": "채권",
+          "currency": "USD",
+          "sector": "국채",
+          "weight": 24,
+          "pricing": {
+            "duration": 8.7,
+            "yield_series": "DGS10"
+          },
+          "factors": [
+            "DGS10"
+          ]
+        },
+        {
+          "asset_id": "OIL",
+          "name": "원유 (WTI)",
+          "asset_class": "대체",
+          "currency": "USD",
+          "sector": "원자재",
+          "weight": 5,
+          "pricing": {
+            "series_id": "WTI"
+          },
+          "factors": [
+            "WTI"
+          ]
+        }
+      ]
+    },
+    {
+      "portfolio_id": "pf_b",
+      "name": "가상 모델 포트폴리오 B",
+      "base_currency": "USD",
+      "aum": 18500,
+      "description": "채권 중심 안정형 · 듀레이션 노출이 큰 구성",
+      "holdings": [
+        {
+          "asset_id": "UST10",
+          "name": "미국 국채 10년",
+          "asset_class": "채권",
+          "currency": "USD",
+          "sector": "국채",
+          "weight": 35,
+          "pricing": {
+            "duration": 8.7,
+            "yield_series": "DGS10"
+          },
+          "factors": [
+            "DGS10"
+          ]
+        },
+        {
+          "asset_id": "US_IG",
+          "name": "미국 투자등급 회사채",
+          "asset_class": "채권",
+          "currency": "USD",
+          "sector": "회사채",
+          "weight": 15,
+          "pricing": {
+            "duration": 7.0,
+            "yield_series": "DGS10"
+          },
+          "factors": [
+            "DGS10",
+            "US_EQ"
+          ]
+        },
+        {
+          "asset_id": "KTB3",
+          "name": "국고채 3년",
+          "asset_class": "채권",
+          "currency": "KRW",
+          "sector": "국채",
+          "weight": 25,
+          "pricing": {
+            "duration": 2.8,
+            "yield_series": "KTB3Y"
+          },
+          "factors": [
+            "KTB3Y",
+            "USDKRW"
+          ]
+        },
+        {
+          "asset_id": "US_EQ",
+          "name": "미국 주식 (S&P 500)",
+          "asset_class": "주식",
+          "currency": "USD",
+          "sector": "혼합",
+          "weight": 10,
+          "pricing": {
+            "series_id": "US_EQ"
+          },
+          "factors": [
+            "US_EQ",
+            "DGS10"
+          ]
+        },
+        {
+          "asset_id": "KR_K200",
+          "name": "KOSPI 200",
+          "asset_class": "주식",
+          "currency": "KRW",
+          "sector": "경기민감",
+          "weight": 10,
+          "pricing": {
+            "series_id": "KR_K200"
+          },
+          "factors": [
+            "KOSPI",
+            "USDKRW"
+          ]
+        },
+        {
+          "asset_id": "OIL",
+          "name": "원유 (WTI)",
+          "asset_class": "대체",
+          "currency": "USD",
+          "sector": "원자재",
+          "weight": 5,
+          "pricing": {
+            "series_id": "WTI"
+          },
+          "factors": [
+            "WTI"
+          ]
+        }
+      ]
+    }
+  ]
+}

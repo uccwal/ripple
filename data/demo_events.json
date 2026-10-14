@@ -1,0 +1,65 @@
+{
+  "_note": "초기 정책 이벤트. is_demo=true 는 시연용 예시(가상) 이벤트로 화면에 '예시'로 표시된다. is_demo=false 는 실제 과거 발표이며 과거 사례 재현 검증에 쓴다. 실제 수집 이벤트는 collectors/federal_register.py, collectors/korea_briefing.py 가 추가한다.",
+  "events": [
+    {
+      "event_id": "ev_demo_us_semis_tariff",
+      "country": "US", "type": "tariff",
+      "title": "반도체 수입품 관세 부과 발표",
+      "summary": "한국·대만산 메모리·로직 반도체 수입품 대상, 2026-11-01 발효 (시연용 예시)",
+      "targets": ["semiconductor"], "value": 25.0, "value_text": "관세율 25%",
+      "announced_at": "2026-10-01", "source": "시연용 예시", "source_url": "",
+      "is_demo": true,
+      "raw_text": "[시연용 예시 이벤트] 미국 정부는 한국·대만산 메모리 및 로직 반도체(HS 8541, 8542) 수입품에 25%의 관세를 부과한다고 발표했다. 관세는 2026년 11월 1일부터 적용된다."
+    },
+    {
+      "event_id": "ev_demo_us_rate_hike",
+      "country": "US", "type": "rate",
+      "title": "연준 기준금리 인상",
+      "summary": "FOMC 정례회의 결정, 정책금리 0.25%p 인상 (시연용 예시)",
+      "targets": ["policy_rate"], "value": 0.25, "value_text": "+0.25%p",
+      "announced_at": "2026-09-17", "source": "시연용 예시", "source_url": "",
+      "is_demo": true,
+      "raw_text": "[시연용 예시 이벤트] 미국 연방공개시장위원회(FOMC)는 정책금리 목표 범위를 0.25%p 인상한다고 발표했다."
+    },
+    {
+      "event_id": "ev_demo_kr_export_control",
+      "country": "KR", "type": "regulation",
+      "title": "첨단산업 수출 통제 품목 확대",
+      "summary": "반도체 장비·소재 12개 품목 추가 (시연용 예시)",
+      "targets": ["semiconductor_equipment"], "value": 12, "value_text": "대상 품목 12개",
+      "announced_at": "2026-09-10", "source": "시연용 예시", "source_url": "",
+      "is_demo": true,
+      "raw_text": "[시연용 예시 이벤트] 정부는 반도체 장비·소재 12개 품목을 수출 통제 대상에 추가한다고 밝혔다."
+    },
+    {
+      "event_id": "ev_demo_cn_agri_tariff",
+      "country": "CN", "type": "tariff",
+      "title": "미국산 농산물 보복관세 부과",
+      "summary": "대두·옥수수 등 미국산 농산물 대상 (시연용 예시)",
+      "targets": ["agriculture"], "value": 15.0, "value_text": "관세율 15%",
+      "announced_at": "2026-10-06", "source": "시연용 예시", "source_url": "",
+      "is_demo": true,
+      "raw_text": "[시연용 예시 이벤트] 중국 정부는 대두, 옥수수 등 미국산 농산물에 15%의 보복관세를 부과한다고 발표했다."
+    },
+    {
+      "event_id": "ev_hist_2019_jp_export",
+      "country": "JP", "type": "regulation",
+      "title": "일본, 반도체·디스플레이 소재 대한국 수출규제 발표",
+      "summary": "불화폴리이미드·포토레지스트·불화수소 3개 품목 수출 심사 강화 (2019-07-01 발표)",
+      "targets": ["semiconductor", "display"], "value": 3, "value_text": "대상 품목 3개",
+      "announced_at": "2019-07-01", "source": "일본 경제산업성 발표 (언론 보도 기준)", "source_url": "",
+      "is_demo": false,
+      "raw_text": "일본 경제산업성은 2019년 7월 1일 플루오린 폴리이미드, 포토레지스트, 고순도 불화수소 3개 품목의 한국 수출 절차를 7월 4일부터 개별 허가로 바꾼다고 발표했다."
+    },
+    {
+      "event_id": "ev_hist_2025_us_reciprocal",
+      "country": "US", "type": "tariff",
+      "title": "미국 상호관세 발표 (한국 25%)",
+      "summary": "국가별 상호관세 부과, 한국 25% (2025-04-02 미국 현지 발표)",
+      "targets": ["all_imports"], "value": 25.0, "value_text": "관세율 25%",
+      "announced_at": "2025-04-03", "source": "미국 백악관 발표 · Federal Register", "source_url": "https://www.federalregister.gov/",
+      "is_demo": false,
+      "raw_text": "미국 대통령은 2025년 4월 2일(현지 시간) 교역 상대국에 상호관세를 부과하는 행정명령에 서명했다. 한국에는 25%의 국가별 관세율이 제시됐다."
+    }
+  ]
+}

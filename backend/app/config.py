@@ -1,0 +1,61 @@
+"""환경 변수 기반 설정. 값은 .env 또는 실행 환경에서 읽는다."""
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = REPO_ROOT / "data"
+
+load_dotenv(REPO_ROOT / ".env")
+
+
+def _float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, default))
+    except ValueError:
+        return default
+
+
+@dataclass(frozen=True)
+class Settings:
+    database_url: str = os.getenv("DATABASE_URL", f"sqlite:///{REPO_ROOT / 'ripple.db'}")
+    anthropic_api_key: str | None = os.getenv("ANTHROPIC_API_KEY") or None
+    # LLM_MODE=offline 이면 API 키가 있어도 LLM을 호출하지 않는다 (규칙 기반 Agent로 실행).
+    llm_mode_override: str | None = os.getenv("LLM_MODE") or None
+    model_default: str = os.getenv("MODEL_DEFAULT", "claude-haiku-5-5")
+    model_impact_mapper: str = os.getenv("MODEL_IMPACT_MAPPER") or os.getenv("MODEL_DEFAULT", "claude-haiku-5-5")
+    llm_timeout_s: float = _float("LLM_TIMEOUT_S", 60.0)
+
+    # 재시도 상한 (설계서 2장)
+    max_retry_impact: int = 2
+    max_retry_risk: int = 1
+
+    # 헤지 규칙 기준값 (설계서 3장 ④, MVP 기본값)
+    hedge_fx_share: float = _float("HEDGE_FX_SHARE", 0.30)
+    hedge_sector_share: float = _float("HEDGE_SECTOR_SHARE", 0.40)
+    hedge_rate_share: float = _float("HEDGE_RATE_SHARE", 0.25)
+
+    # 팩터 회귀 창 (영업일)
+    beta_window_days: int = int(os.getenv("BETA_WINDOW_DAYS", "1250"))  # 약 5년
+    beta_min_obs: int = 250
+
+    fred_api_key: str | None = os.getenv("FRED_API_KEY") or None
+    ecos_api_key: str | None = os.getenv("ECOS_API_KEY") or None
+    data_go_kr_api_key: str | None = os.getenv("DATA_GO_KR_API_KEY") or None
+
+    cors_origins: list[str] = field(
+        default_factory=lambda: os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+    )
+
+    @property
+    def llm_mode(self) -> str:
+        if self.llm_mode_override == "offline":
+            return "offline"
+        return "anthropic" if self.anthropic_api_key else "offline"
+
+
+settings = Settings()
