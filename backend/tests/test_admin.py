@@ -27,8 +27,8 @@ def test_admin_collect_requires_token_and_starts(monkeypatch):
 
 def test_collect_run_skips_without_keys():
     reports = collect.run(only=["fred", "ecos"])
-    assert {r["collector"] for r in reports} == {"fred", "ecos"}
-    assert all(r["status"] == "skipped" for r in reports)
+    assert {r["collector"] for r in reports} == {"fred", "ecos", "localize"}
+    assert all(r["status"] == "skipped" for r in reports)  # 키 없음 · offline
 
 
 def test_data_status_public():
@@ -42,3 +42,20 @@ def test_data_status_public():
         assert "KOSPI" in d["synthetic_remaining"]
         assert any(e["is_demo"] for e in d["events"])
         assert {c["name"] for c in d["collectors"]} >= {"fred", "ecos", "krx_prices"}
+
+
+def test_ensure_columns_adds_missing(tmp_path):
+    from sqlalchemy import inspect, text
+
+    from app import db
+    eng = db.make_engine(f"sqlite:///{tmp_path / 'old.db'}")
+    with eng.begin() as conn:
+        conn.execute(text("CREATE TABLE policy_event (event_id VARCHAR(64) PRIMARY KEY, country VARCHAR(8), type VARCHAR(16), title VARCHAR(300), announced_at DATE)"))
+    db.init_db(eng)
+    cols = {c["name"] for c in inspect(eng).get_columns("policy_event")}
+    assert {"title_orig", "relevance", "summary", "is_demo"} <= cols
+
+
+def test_localize_offline_noop():
+    from app.localize import localize_pending
+    assert localize_pending() == {"done": 0, "failed": 0, "skipped": "offline"}

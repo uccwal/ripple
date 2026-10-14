@@ -46,6 +46,18 @@ def run(since: date | None = None, only: list[str] | None = None) -> list[dict]:
             log.info(rep.line())
             reports.append({"collector": rep.collector, "status": rep.status, "message": rep.message, "counts": rep.counts})
             _state["reports"] = list(reports)
+        # 수집된 외국어 이벤트를 한국어로 구조화 (LLM 모드일 때만)
+        from .localize import localize_pending  # noqa: PLC0415
+
+        try:
+            loc = localize_pending()
+            reports.append({"collector": "localize", "status": "skipped" if loc.get("skipped") else "ok",
+                            "message": "이벤트 한국어 구조화" + (f" ({loc['skipped']})" if loc.get("skipped") else ""),
+                            "counts": {k: v for k, v in loc.items() if k != "skipped"}})
+        except Exception as e:  # noqa: BLE001
+            log.exception("한국어 구조화 실패")
+            reports.append({"collector": "localize", "status": "error", "message": f"{type(e).__name__}: {e}", "counts": {}})
+        _state["reports"] = list(reports)
         return reports
     except Exception as e:  # noqa: BLE001
         _state["error"] = f"{type(e).__name__}: {e}"

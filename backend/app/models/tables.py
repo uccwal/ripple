@@ -46,6 +46,8 @@ class PolicyEvent(Base):
     source_url: Mapped[str] = mapped_column(Text, default="")
     license: Mapped[str] = mapped_column(Text, default="")
     raw_text: Mapped[str] = mapped_column(Text, default="")
+    title_orig: Mapped[str | None] = mapped_column(String(300), nullable=True)  # 한국어화 전 원문 제목
+    relevance: Mapped[str | None] = mapped_column(String(8), nullable=True)      # high | mid | low (포트폴리오 관련성)
     is_demo: Mapped[bool] = mapped_column(default=False)
     collected_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

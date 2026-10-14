@@ -39,7 +39,28 @@ SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
 def init_db(eng=None) -> None:
     from .models import tables  # noqa: F401  (테이블 등록)
 
-    Base.metadata.create_all(eng or engine)
+    eng = eng or engine
+    Base.metadata.create_all(eng)
+    ensure_columns(eng)
+
+
+def ensure_columns(eng) -> None:
+    """모델에 새로 추가된 컬럼을 기존 테이블에 붙인다 (간이 마이그레이션). 이미 있으면 아무것도 안 한다."""
+    from sqlalchemy import inspect, text
+
+    insp = inspect(eng)
+    with eng.begin() as conn:
+        for table in Base.metadata.sorted_tables:
+            if not insp.has_table(table.name):
+                continue
+            existing = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in existing:
+                    continue
+                ddl = f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {col.type.compile(eng.dialect)}'
+                if not col.nullable and col.default is None and col.server_default is None:
+                    ddl += " NULL"
+                conn.execute(text(ddl))
 
 
 @contextmanager

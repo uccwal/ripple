@@ -54,6 +54,7 @@ def _event_view(e: PolicyEvent, last_run: Run | None) -> dict:
         "type": e.type, "type_name": TYPE_NAME.get(e.type, e.type), "title": e.title, "summary": e.summary,
         "targets": e.targets, "value": e.value, "value_text": e.value_text, "announced_at": e.announced_at.isoformat(),
         "source": e.source, "source_url": e.source_url, "is_demo": e.is_demo,
+        "title_orig": e.title_orig, "relevance": e.relevance,
         "last_run": ({"run_id": last_run.run_id, "portfolio_pnl": (last_run.state.get("result") or {}).get("portfolio_pnl")}
                      if last_run else None),
     }
