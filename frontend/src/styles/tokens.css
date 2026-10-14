@@ -1,0 +1,48 @@
+/* docs/design/tokens.css 사본 — 원본과 동기화한다. */
+:root {
+  --rp-navy-900: #16264A;
+  --rp-navy-700: #2A3F6E;
+  --rp-navy-500: #3B5185;
+  --rp-navy-300: #6F84B5;
+  --rp-navy-50: #EEF1F7;
+  --rp-bg: #F5F6F8;
+  --rp-surface: #FFFFFF;
+  --rp-surface-sunken: #F8F9FA;
+  --rp-border: #E3E6EB;
+  --rp-border-subtle: #EEF0F3;
+  --rp-border-strong: #CDD2DA;
+  --rp-text: #141A24;
+  --rp-text-2: #4A5363;
+  --rp-text-3: #7A8394;
+  --rp-text-4: #A3AAB6;
+  --rp-gain: #D23F31;      /* 이익 (국내식) */
+  --rp-gain-bg: #FDEDEB;
+  --rp-loss: #1E5BD8;      /* 손실 (국내식) */
+  --rp-loss-bg: #EAF0FD;
+  --rp-pass: #1B7F4B;
+  --rp-pass-bg: #E5F4EC;
+  --rp-warn: #8A5E00;
+  --rp-warn-bg: #FFF4D1;
+  --rp-loop: #D9A92E;
+  --rp-fail: #B42318;
+  --rp-fail-bg: #FDECEA;
+  --rp-conf-high: #16264A;
+  --rp-conf-mid: #8C9AB8;
+  --rp-conf-low: #A3AAB6;
+
+  --rp-font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", sans-serif;
+  --rp-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --rp-radius-xs: 3px;
+  --rp-radius-sm: 4px;
+  --rp-radius: 6px;
+  --rp-radius-card: 8px;
+
+  --rp-shadow-focus: 0 0 0 3px rgba(22, 38, 74, 0.12);
+  --rp-shadow-panel: -8px 0 24px rgba(20, 26, 36, 0.12);
+  --rp-shadow-toast: 0 6px 20px rgba(20, 26, 36, 0.2);
+}
+
+body { font-family: var(--rp-font); font-size: 14px; line-height: 1.5; color: var(--rp-text); background: var(--rp-bg); word-break: keep-all; }
+.rp-num { font-variant-numeric: tabular-nums; }
+.rp-num-link { font-variant-numeric: tabular-nums; cursor: pointer; text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
