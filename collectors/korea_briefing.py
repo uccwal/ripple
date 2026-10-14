@@ -38,7 +38,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 
 from . import base
-from .base import CollectorError, DateRange
+from .base import MissingApiKey, CollectorError, DateRange
 
 log = logging.getLogger("collectors.korea_briefing")
 
@@ -46,6 +46,9 @@ REQUIRED_KEY = None  # 키가 있으면 공공데이터포털 API, 없으면 RSS
 DEFAULT_DAYS = 365
 API_URL = "https://apis.data.go.kr/1371000/pressReleaseService/pressReleaseList"
 RSS_URL = "https://www.korea.kr/rss/pressrelease.xml"
+# korea.kr RSS 주소는 개편으로 바뀔 수 있어 후보를 차례로 시도한다 (첫 성공 사용). 전부 실패하면 '건너뜀'으로 보고.
+RSS_CANDIDATES = [RSS_URL, "https://www.korea.kr/rss/policy.xml", "https://www.korea.kr/rss/news.xml",
+                  "https://www.korea.kr/rss/briefing.xml"]
 SOURCE = "대한민국 정책브리핑 (korea.kr)"
 PAGE_SIZE = 100
 MAX_PAGES = 50
@@ -270,8 +273,22 @@ def fetch_api(client: httpx.Client, service_key: str, rng: DateRange) -> list[di
 
 
 def fetch_rss(client: httpx.Client, *, fetch_pages: bool = True) -> list[dict[str, Any]]:
-    resp = base.get(client, RSS_URL)
-    items = parse_rss(resp.text)
+    items: list[dict[str, Any]] = []
+    last_exc: Exception | None = None
+    for url in RSS_CANDIDATES:
+        try:
+            resp = base.get(client, url, retries=1)
+            if "<rss" not in resp.text[:2000] and "<feed" not in resp.text[:2000]:
+                raise CollectorError(f"RSS 형식이 아님: {url}")
+            items = parse_rss(resp.text)
+            log.info("RSS 사용: %s (%d건)", url, len(items))
+            break
+        except CollectorError as exc:
+            last_exc = exc
+            log.warning("RSS 실패 %s: %s", url, str(exc)[:120])
+    if not items and last_exc is not None:
+        raise MissingApiKey("korea.kr RSS 주소를 찾지 못했습니다. 공공데이터포털 '문화체육관광부_대한민국 정책브리핑' API 활용신청 후 "
+                            "DATA_GO_KR_API_KEY 로 수집하세요 (RSS 는 폴백).")
     if fetch_pages:
         fetched = 0
         for it in items:

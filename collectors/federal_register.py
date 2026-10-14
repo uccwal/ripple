@@ -44,7 +44,9 @@ MAX_PAGES = 20  # 검색어당 상한 (과도한 수집 방지)
 
 # 검색어·기관·문서유형 (편집 가능)
 SEARCH_TERMS: list[str] = ["tariff", "duties", "\"Section 232\"", "\"Section 301\"", "\"import restriction\""]
-AGENCIES: list[str] = ["trade-representative", "commerce-department", "international-trade-administration"]
+# Federal Register 기관 slug. USTR 의 slug 는 "trade-representative-office-of-united-states" 다.
+# slug 가 틀리면 API 가 400 {"errors":{"agencies":"invalid value"}} 을 돌려주므로, 그 경우 기관 필터 없이 다시 조회한다.
+AGENCIES: list[str] = ["trade-representative-office-of-united-states", "commerce-department", "international-trade-administration"]
 DOC_TYPES: list[str] = ["PRESDOCU", "RULE"]
 FIELDS: list[str] = ["document_number", "title", "abstract", "type", "publication_date", "html_url",
                      "body_html_url", "agencies", "action", "subtype"]
@@ -141,7 +143,7 @@ def parse_documents(payload: Any) -> tuple[list[dict[str, Any]], int, str | None
     return results, int(payload.get("count", 0) or 0), payload.get("next_page_url")
 
 
-def build_params(term: str, rng: DateRange, page: int = 1) -> list[tuple[str, Any]]:
+def build_params(term: str, rng: DateRange, page: int = 1, *, with_agencies: bool = True) -> list[tuple[str, Any]]:
     """배열 파라미터(conditions[agencies][] 등)는 같은 키를 반복해야 하므로 (key, value) 목록으로 만든다."""
     params: list[tuple[str, Any]] = [
         ("conditions[term]", term),
@@ -149,7 +151,8 @@ def build_params(term: str, rng: DateRange, page: int = 1) -> list[tuple[str, An
         ("conditions[publication_date][lte]", rng.until.isoformat()),
         ("per_page", PER_PAGE), ("page", page), ("order", "newest"),
     ]
-    params += [("conditions[agencies][]", a) for a in AGENCIES]
+    if with_agencies:
+        params += [("conditions[agencies][]", a) for a in AGENCIES]
     params += [("conditions[type][]", t) for t in DOC_TYPES]
     params += [("fields[]", f) for f in FIELDS]
     return params
@@ -161,9 +164,18 @@ def build_params(term: str, rng: DateRange, page: int = 1) -> list[tuple[str, An
 
 def fetch_documents(client: httpx.Client, rng: DateRange, terms: list[str] | None = None) -> list[dict[str, Any]]:
     seen: dict[str, dict[str, Any]] = {}
+    with_agencies = True
     for term in terms or SEARCH_TERMS:
         for page in range(1, MAX_PAGES + 1):
-            payload = base.get_json(client, BASE_URL, build_params(term, rng, page))
+            try:
+                payload = base.get_json(client, BASE_URL, build_params(term, rng, page, with_agencies=with_agencies))
+            except CollectorError as exc:
+                if with_agencies and "agencies" in str(exc):
+                    log.warning("기관 slug 가 거부됨 — 기관 필터 없이 재조회: %s", exc)
+                    with_agencies = False
+                    payload = base.get_json(client, BASE_URL, build_params(term, rng, page, with_agencies=False))
+                else:
+                    raise
             results, count, next_url = parse_documents(payload)
             for doc in results:
                 num = doc.get("document_number")
