@@ -342,3 +342,45 @@ def admin_collect_run_get(token: str | None = Query(default=None), since: date |
         raise HTTPException(409, "이미 수집이 진행 중입니다")
     return {"started": True, "since": since.isoformat() if since else None, "only": names,
             "status_url": f"/api/admin/collect/status?token={token}"}
+
+
+# ------------------------------------------------------------------ 데이터 관리 (S7): 시리즈·이벤트·수집 현황
+
+@router.get("/data/status")
+def data_status(s: Session = Depends(get_session)):
+    """시리즈별 출처·기간·건수·실데이터 여부, 이벤트 소스별 건수, 마지막 수집 결과. 토큰 불필요(읽기 전용)."""
+    from ..engine.catalog import FACTOR_BY_ID as _F  # noqa: PLC0415
+
+    rows = s.execute(
+        select(Series.series_id, Series.name, Series.source, Series.unit, Series.license, Series.source_url,
+               func.count(SeriesValue.id), func.min(SeriesValue.date), func.max(SeriesValue.date), func.max(SeriesValue.collected_at))
+        .outerjoin(SeriesValue, SeriesValue.series_id == Series.series_id)
+        .group_by(Series.series_id).order_by(Series.series_id)
+    ).all()
+    used = {h.pricing.get("series_id") or h.pricing.get("yield_series") for h in s.scalars(select(Holding))} | {f.series_id for f in _F.values()}
+    series = []
+    for sid, name, source, unit, lic, url, n, d0, d1, collected in rows:
+        series.append({
+            "series_id": sid, "name": name, "source": source, "unit": unit, "license": lic, "source_url": url,
+            "count": n, "first_date": d0.isoformat() if d0 else None, "last_date": d1.isoformat() if d1 else None,
+            "collected_at": collected.isoformat() if collected else None,
+            "synthetic": source.startswith("SYNTHETIC"), "in_use": sid in used,
+            "role": "factor" if sid in _F else ("asset" if sid in used else "other"),
+            "factor_name": _F[sid].name if sid in _F else None,
+        })
+    ev_rows = s.execute(select(PolicyEvent.source, PolicyEvent.is_demo, func.count(), func.min(PolicyEvent.announced_at),
+                               func.max(PolicyEvent.announced_at)).group_by(PolicyEvent.source, PolicyEvent.is_demo)).all()
+    events = [{"source": src, "is_demo": demo, "count": c, "first_date": d0.isoformat() if d0 else None,
+               "last_date": d1.isoformat() if d1 else None} for src, demo, c, d0, d1 in ev_rows]
+    from ..collect import status as collect_status  # noqa: PLC0415
+    from collectors import run_all  # noqa: PLC0415
+
+    collectors = [{"name": c.name, "description": c.description, "required_key": run_all.ENV_NAMES.get(c.required_key or "", None) if c.required_key else None,
+                   "key_present": run_all.key_missing(c, settings) is None} for c in run_all.REGISTRY]
+    return {
+        "llm_mode": settings.llm_mode, "model_default": settings.model_default, "model_impact_mapper": settings.model_impact_mapper,
+        "synthetic_remaining": [x["series_id"] for x in series if x["synthetic"] and x["in_use"]],
+        "series": series, "events": events, "collectors": collectors,
+        "collect": collect_status(), "admin_enabled": bool(settings.admin_token),
+        "daily_hour_utc": settings.collect_daily_hour_utc,
+    }

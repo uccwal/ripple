@@ -224,3 +224,30 @@
 ```json
 {"series_id": "DGS10", "name": "…", "unit": "%", "source": "FRED", "license": "…", "points": [{"date": "2026-10-13", "value": 4.12}]}
 ```
+
+## GET `/api/data/status` — 데이터 관리 화면(S7), 토큰 불필요
+
+```json
+{
+  "llm_mode": "anthropic | offline", "model_default": "claude-haiku-5-5", "model_impact_mapper": "…",
+  "synthetic_remaining": ["KOSPI_IT"],
+  "series": [{"series_id": "USDKRW", "name": "원/달러 환율", "source": "한국은행 ECOS", "unit": "KRW", "license": "…", "source_url": "…",
+              "count": 2705, "first_date": "2015-10-19", "last_date": "2026-10-14", "collected_at": "2026-10-14T08:29:10",
+              "synthetic": false, "in_use": true, "role": "factor | asset | other", "factor_name": "원/달러 환율"}],
+  "events": [{"source": "Federal Register", "is_demo": false, "count": 321, "first_date": "…", "last_date": "…"}],
+  "collectors": [{"name": "fred", "description": "FRED → DGS10, WTI", "required_key": "FRED_API_KEY", "key_present": true}],
+  "collect": {"running": false, "started_at": "…", "finished_at": "…", "next_scheduled_at": "…", "error": null,
+              "reports": [{"collector": "krx_prices", "status": "ok | skipped | error", "message": "…", "counts": {"KOSPI": 1662}}]},
+  "admin_enabled": true, "daily_hour_utc": 0
+}
+```
+
+## 관리용 (헤더 `X-Admin-Token` 또는 `?token=`)
+
+| 메서드 | 경로 | 설명 |
+| --- | --- | --- |
+| POST | `/api/admin/collect` body `{since?, only?: ["fred", …]}` | 수집 시작 (202). 진행 중이면 409 |
+| GET | `/api/admin/collect/run?token=&since=&only=a,b` | 브라우저용 수집 시작 |
+| GET | `/api/admin/collect/status` | 진행 상황 (`collect` 객체와 동일) |
+
+`ADMIN_TOKEN`이 비어 있으면 404. 토큰이 틀리면 403.
