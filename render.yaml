@@ -5,7 +5,7 @@ services:
   - type: web
     name: ripple-api
     runtime: docker
-    dockerfilePath: ./backend/Dockerfile
+    dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: free
     healthCheckPath: /healthz
