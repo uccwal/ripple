@@ -19,6 +19,7 @@ const NAV = [
   { name: 'events', label: '이벤트', to: '/' },
   { name: 'portfolios', label: '포트폴리오', to: '/portfolios' },
   { name: 'runs', label: '실행 이력', to: '/runs' },
+  { name: 'data', label: '데이터', to: '/data' },
 ] as const
 
 const SYNTHETIC_TIP =
@@ -58,7 +59,15 @@ function openRunning(): void {
     <div class="flex-1" />
 
     <div class="flex items-center gap-9">
-      <RpBadge v-if="meta?.synthetic_data" variant="warn" :tooltip="SYNTHETIC_TIP">⚠ 합성 데이터</RpBadge>
+      <RouterLink
+        v-if="meta?.synthetic_data"
+        :to="{ name: 'data' }"
+        class="flex no-underline"
+        title="데이터 관리로 이동"
+        aria-label="합성 데이터 경고 — 데이터 관리로 이동"
+      >
+        <RpBadge variant="warn" :tooltip="`${SYNTHETIC_TIP}\n데이터 관리로 이동`">⚠ 합성 데이터</RpBadge>
+      </RouterLink>
 
       <button
         v-if="runningPill"

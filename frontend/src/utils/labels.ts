@@ -1,4 +1,14 @@
-import type { Confidence, CountryCode, Entry, EventType, Layer, StepStatus, ValidationStatus } from '@/api/types'
+import type {
+  CollectReportStatus,
+  Confidence,
+  CountryCode,
+  Entry,
+  EventType,
+  Layer,
+  SeriesRole,
+  StepStatus,
+  ValidationStatus,
+} from '@/api/types'
 
 export const ENTRY_LABEL: Record<Entry, string> = {
   event: '정책 이벤트',
@@ -76,3 +86,26 @@ export const PIPELINE: Record<Entry, string> = {
   event: 'Event Analyst → Impact Mapper → Scenario Builder → Regime Finder → Risk Engine → Validator → Report Writer',
   scenario: 'Scenario Builder → Regime Finder → Risk Engine → Validator → Report Writer',
 }
+
+/* ---------- S7 데이터 관리 ---------- */
+
+/** 시계열 역할 배지 (입구 유형 배지와 같은 navy-50 스타일) */
+export const SERIES_ROLE_LABEL: Record<SeriesRole, string> = {
+  factor: '팩터',
+  asset: '자산',
+  other: '보조',
+}
+
+export const SYNTHETIC_SERIES_TIP = '데모용 합성 시계열 — 수집기가 실데이터로 교체합니다'
+
+/** 수집기 실행 결과 배지 */
+export const COLLECT_REPORT_BADGE: Record<CollectReportStatus, { text: string; variant: 'pass' | 'outline' | 'fail' }> = {
+  ok: { text: '✓ 성공', variant: 'pass' },
+  skipped: { text: '건너뜀', variant: 'outline' },
+  error: { text: '! 오류', variant: 'fail' },
+}
+
+export const LLM_MODE_LABEL = {
+  anthropic: 'Claude 연결',
+  offline: 'offline 규칙 모드',
+} as const

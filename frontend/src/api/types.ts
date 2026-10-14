@@ -372,3 +372,88 @@ export interface CalcLog {
   inputs: Record<string, unknown>
   outputs: Record<string, unknown>
 }
+
+/* ---------- /api/data/status (S7 데이터 관리) ---------- */
+
+export type SeriesRole = 'factor' | 'asset' | 'other'
+export type CollectReportStatus = 'ok' | 'skipped' | 'error'
+
+export interface SeriesStatus {
+  series_id: string
+  name: string
+  source: string
+  unit: string
+  license: string | null
+  source_url: string | null
+  count: number
+  first_date: string | null
+  last_date: string | null
+  /** naive UTC ISO (DB 컬럼 기준) */
+  collected_at: string | null
+  synthetic: boolean
+  /** 팩터 카탈로그 또는 포트폴리오 가격 결정에 쓰이는 시리즈 */
+  in_use: boolean
+  role: SeriesRole
+  factor_name: string | null
+}
+
+export interface EventSourceStatus {
+  source: string
+  is_demo: boolean
+  count: number
+  first_date: string | null
+  last_date: string | null
+}
+
+export interface CollectorStatus {
+  name: string
+  description: string
+  /** 필요한 환경 변수 이름. 키가 필요 없으면 null */
+  required_key: string | null
+  key_present: boolean
+}
+
+export interface CollectReport {
+  collector: string
+  status: CollectReportStatus
+  message: string
+  counts: Record<string, number>
+}
+
+export interface CollectState {
+  running: boolean
+  started_at: string | null
+  finished_at: string | null
+  /** 시간대 포함 ISO (UTC) */
+  next_scheduled_at: string | null
+  error: string | null
+  reports: CollectReport[]
+}
+
+export interface DataStatus {
+  llm_mode: LlmMode
+  model_default: string
+  model_impact_mapper: string
+  /** 아직 합성 데이터로 계산 중인(사용 중인) 시리즈 id */
+  synthetic_remaining: string[]
+  series: SeriesStatus[]
+  events: EventSourceStatus[]
+  collectors: CollectorStatus[]
+  collect: CollectState
+  admin_enabled: boolean
+  daily_hour_utc: number | null
+}
+
+/* ---------- POST /api/admin/collect ---------- */
+
+export interface CollectRequest {
+  /** YYYY-MM-DD */
+  since?: string
+  only?: string[]
+}
+
+export interface CollectStartResponse {
+  started: boolean
+  since: string | null
+  only: string[] | null
+}

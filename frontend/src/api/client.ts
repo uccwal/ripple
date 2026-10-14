@@ -1,6 +1,9 @@
 import type {
   CalcLog,
+  CollectRequest,
+  CollectStartResponse,
   CreateRunRequest,
+  DataStatus,
   EventDetail,
   EventQuery,
   EventSummary,
@@ -35,7 +38,9 @@ export class ApiError extends Error {
 
 function describeStatus(status: number): string {
   if (status === 0) return '서버에 연결할 수 없습니다. 백엔드(:8000)가 실행 중인지 확인하세요.'
+  if (status === 403) return '권한이 없습니다.'
   if (status === 404) return '요청한 항목을 찾을 수 없습니다.'
+  if (status === 409) return '이미 진행 중인 작업이 있습니다.'
   if (status === 422 || status === 400) return '요청 형식이 올바르지 않습니다.'
   if (status >= 500) return '서버 오류가 발생했습니다.'
   return `요청에 실패했습니다 (HTTP ${status}).`
@@ -101,6 +106,16 @@ export const api = {
   patchScenario: (id: string, body: ScenarioPatchRequest) =>
     request<RunIdResponse>(`/runs/${enc(id)}/scenario`, { method: 'PATCH', body: JSON.stringify(body) }),
   calcLog: (id: string) => request<CalcLog>(`/runs/${enc(id)}/calc-log`),
+
+  /** S7 데이터 관리 — 토큰 불필요 */
+  getDataStatus: (signal?: AbortSignal) => request<DataStatus>('/data/status', { signal }),
+  /** 수집 시작 (202). 403 토큰 오류 · 409 이미 진행 중 · 404 관리용 API 비활성 */
+  startCollect: (token: string, body: CollectRequest = {}) =>
+    request<CollectStartResponse>('/admin/collect', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'X-Admin-Token': token },
+    }),
 }
 
 /** SSE 스트림 URL (EventSource용) */
