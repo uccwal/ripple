@@ -114,8 +114,12 @@ def start_scheduler() -> None:
         first = True
         while True:
             if first:
-                log.info("기동 수집 시작 (최근 %d일)", settings.collect_startup_days)
-                _safe_run(date.today() - timedelta(days=settings.collect_startup_days), None)
+                # 합성 시계열이 남아 있으면 처음 채울 때 전체 기간(11년)을 받아야 회귀(최소 250일)가 가능하다.
+                # 전부 실데이터면 최근 N일만 갱신한다.
+                full = _needs_retry()
+                since = date.today() - timedelta(days=365 * 11 if full else settings.collect_startup_days)
+                log.info("기동 수집 시작 (%s)", "전체 기간" if full else f"최근 {settings.collect_startup_days}일")
+                _safe_run(since, None)
                 first = False
             wait = _seconds_until(hour)
             if _needs_retry():
