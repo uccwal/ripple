@@ -44,7 +44,12 @@ def healthz():
 
 # 프론트엔드 빌드(frontend/dist)가 있으면 같은 서버에서 서빙한다 (단일 데모 URL).
 _dist = REPO_ROOT / "frontend" / "dist"
-if _dist.exists():
+if not _dist.exists():
+    # API만 배포했을 때 루트 안내
+    @app.get("/", include_in_schema=False)
+    def root():
+        return {"service": "RIPPLE API", "docs": "/docs", "meta": "/api/meta", "frontend": "https://uccwal.github.io/ripple/"}
+else:
     app.mount("/assets", StaticFiles(directory=_dist / "assets"), name="assets")
 
     @app.get("/{path:path}", include_in_schema=False)
