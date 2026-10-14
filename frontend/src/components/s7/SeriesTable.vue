@@ -3,7 +3,8 @@ import { computed } from 'vue'
 import type { SeriesRole, SeriesStatus } from '@/api/types'
 import EmptyState from '@/components/common/EmptyState.vue'
 import RpBadge from '@/components/common/RpBadge.vue'
-import { formatDateRange, formatInt, formatLocalDateTime } from '@/utils/dataStatus'
+import { formatDateRange, formatInt } from '@/utils/dataStatus'
+import { formatDateTime } from '@/utils/format'
 import { SERIES_ROLE_LABEL, SYNTHETIC_SERIES_TIP } from '@/utils/labels'
 
 /** S7 시계열 표: 팩터 → 자산 → 보조 순, 사용하지 않는 시리즈는 흐리게 */
@@ -77,7 +78,7 @@ const counts = computed(() => {
         </span>
         <span class="tnum" :class="s.in_use ? 'text-ink-2' : ''">{{ formatDateRange(s.first_date, s.last_date) }}</span>
         <span class="tnum text-right font-semibold">{{ formatInt(s.count) }}</span>
-        <span class="tnum" :class="s.in_use ? 'text-ink-2' : ''">{{ formatLocalDateTime(s.collected_at) }}</span>
+        <span class="tnum" :class="s.in_use ? 'text-ink-2' : ''">{{ formatDateTime(s.collected_at) }}</span>
         <span>
           <RpBadge v-if="s.synthetic" variant="warn" :tooltip="SYNTHETIC_SERIES_TIP">⚠ 합성</RpBadge>
           <RpBadge v-else variant="pass">✓ 실데이터</RpBadge>

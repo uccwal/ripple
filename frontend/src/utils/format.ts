@@ -142,26 +142,64 @@ export function formatElapsed(ms: number | null | undefined): string {
   return `${(Math.floor(ms / 100) / 10).toFixed(1)}s`
 }
 
-function pad(n: number): string {
+function pad(n: number | string): string {
   return String(n).padStart(2, '0')
 }
 
+const KST = 'Asia/Seoul'
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
+const HAS_TZ = /(?:Z|[+-]\d{2}:?\d{2})$/i
+
 /**
- * ISO 일시 → 'YYYY-MM-DD HH:mm' (브라우저 로컬 시각).
- * 시간대가 없는 ISO 문자열은 로컬 시각으로 해석된다.
+ * ISO 문자열 → Date. 백엔드의 시각은 대부분 시간대가 없는 ISO(naive UTC, DB 컬럼 기준)이므로
+ * 시간대가 없으면 UTC로 해석한다. 날짜만 있으면 UTC 자정. 파싱 실패·빈 값은 null.
+ */
+export function parseIso(iso: string | null | undefined): Date | null {
+  if (!iso) return null
+  const s = DATE_ONLY.test(iso) ? `${iso}T00:00:00Z` : HAS_TZ.test(iso) ? iso : `${iso}Z`
+  const d = new Date(s)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function kstParts(d: Date): { y: string; mo: string; d: string; h: string; mi: string } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: KST,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(d)
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? ''
+  return { y: get('year'), mo: get('month'), d: get('day'), h: pad(get('hour')), mi: get('minute') }
+}
+
+/** 한국 시간 표기: '2026-10-15 09:00 KST' (suffix=false 면 'KST' 없이) */
+export function formatKst(iso: string | null | undefined, { suffix = true }: { suffix?: boolean } = {}): string {
+  const d = parseIso(iso)
+  if (!d) return EMPTY
+  const p = kstParts(d)
+  return `${p.y}-${p.mo}-${p.d} ${p.h}:${p.mi}${suffix ? ' KST' : ''}`
+}
+
+/**
+ * ISO 일시 → 'YYYY-MM-DD HH:mm' — 모든 화면 공통, 한국 시간(Asia/Seoul) 기준.
+ * 시간대가 없는 ISO 문자열은 UTC로 해석한다. 파싱할 수 없으면 입력을 그대로 돌려준다.
  */
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return EMPTY
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const d = parseIso(iso)
+  if (!d) return iso
+  return formatKst(iso, { suffix: false })
 }
 
-/** ISO 일시/날짜 → 'YYYY-MM-DD' */
+/** ISO 일시/날짜 → 'YYYY-MM-DD'. 날짜만 있으면 그대로, 일시는 한국 시간 기준 날짜. */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return EMPTY
-  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  if (DATE_ONLY.test(iso)) return iso
+  const d = parseIso(iso)
+  if (!d) return iso
+  const p = kstParts(d)
+  return `${p.y}-${p.mo}-${p.d}`
 }

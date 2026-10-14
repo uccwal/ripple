@@ -15,6 +15,7 @@ import {
   formatShockInput,
   formatSigned,
   formatWeight,
+  parseIso,
   parseShockInput,
   pnlColor,
   pnlTone,
@@ -146,7 +147,31 @@ describe('시간·날짜', () => {
 
   it('날짜 표기', () => {
     expect(formatDate('2026-10-14')).toBe('2026-10-14')
-    expect(formatDateTime('2026-10-14T09:31:00')).toBe('2026-10-14 09:31')
     expect(formatDateTime(null)).toBe(EMPTY)
+    expect(formatDate(null)).toBe(EMPTY)
+  })
+
+  it('일시는 한국 시간(Asia/Seoul) 기준, 시간대 없는 ISO는 UTC로 해석', () => {
+    expect(formatDateTime('2026-10-14T09:31:00')).toBe('2026-10-14 18:31')
+    expect(formatDateTime('2026-10-14T09:31:00.123456')).toBe('2026-10-14 18:31')
+    expect(formatDateTime('2026-10-14T09:31:00Z')).toBe('2026-10-14 18:31')
+    expect(formatDateTime('2026-10-14T18:31:00+09:00')).toBe('2026-10-14 18:31')
+    // UTC 늦은 밤 → KST 다음 날
+    expect(formatDateTime('2026-10-14T16:05:00')).toBe('2026-10-15 01:05')
+    expect(formatDate('2026-10-14T16:05:00')).toBe('2026-10-15')
+    expect(formatDate('2026-10-14T16:05:00+09:00')).toBe('2026-10-14')
+  })
+
+  it('파싱할 수 없는 일시는 입력을 그대로', () => {
+    expect(formatDateTime('어제')).toBe('어제')
+    expect(formatDate('어제')).toBe('어제')
+  })
+
+  it('parseIso: 시간대 없는 ISO = UTC, 날짜만 = UTC 자정', () => {
+    expect(parseIso('2026-10-14T08:29:10')?.toISOString()).toBe('2026-10-14T08:29:10.000Z')
+    expect(parseIso('2026-10-14T17:29:10+09:00')?.toISOString()).toBe('2026-10-14T08:29:10.000Z')
+    expect(parseIso('2026-10-14')?.toISOString()).toBe('2026-10-14T00:00:00.000Z')
+    expect(parseIso(null)).toBeNull()
+    expect(parseIso('')).toBeNull()
   })
 })

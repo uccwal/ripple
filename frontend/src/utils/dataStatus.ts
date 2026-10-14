@@ -1,25 +1,13 @@
 /**
  * S7 데이터 관리 화면의 시각·건수 표기.
- * - 백엔드의 시각은 대부분 시간대가 없는 ISO(naive UTC, DB 컬럼 기준)다. 그대로 `new Date()`에 넣으면
- *   브라우저 로컬 시각으로 잘못 해석되므로 여기서는 시간대가 없으면 UTC로 본다.
- * - 예약 수집 시각은 한국 시간(Asia/Seoul)으로 표기한다.
+ * 시각 파싱·KST 표기는 utils/format 의 공통 규칙(시간대 없는 ISO = UTC, 표기는 Asia/Seoul)을 쓴다.
  */
-import { EMPTY } from './format'
+import { EMPTY, parseIso } from './format'
 
-const KST = 'Asia/Seoul'
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
-const HAS_TZ = /(?:Z|[+-]\d{2}:?\d{2})$/i
+export { formatKst, parseIso } from './format'
 
 function pad(n: number | string): string {
   return String(n).padStart(2, '0')
-}
-
-/** ISO 문자열 → Date. 시간대가 없으면 UTC로 해석한다. 파싱 실패·빈 값은 null. */
-export function parseIso(iso: string | null | undefined): Date | null {
-  if (!iso) return null
-  const s = DATE_ONLY.test(iso) ? `${iso}T00:00:00Z` : HAS_TZ.test(iso) ? iso : `${iso}Z`
-  const d = new Date(s)
-  return Number.isNaN(d.getTime()) ? null : d
 }
 
 /**
@@ -45,39 +33,10 @@ export function formatRelative(iso: string | null | undefined, now: number = Dat
   return `${Math.floor(days / 365)}년 ${suffix}`
 }
 
-function kstParts(d: Date): { y: string; mo: string; d: string; h: string; mi: string } {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: KST,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(d)
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? ''
-  return { y: get('year'), mo: get('month'), d: get('day'), h: pad(get('hour')), mi: get('minute') }
-}
-
-/** 한국 시간 표기: '2026-10-15 09:00 KST' */
-export function formatKst(iso: string | null | undefined, { suffix = true }: { suffix?: boolean } = {}): string {
-  const d = parseIso(iso)
-  if (!d) return EMPTY
-  const p = kstParts(d)
-  return `${p.y}-${p.mo}-${p.d} ${p.h}:${p.mi}${suffix ? ' KST' : ''}`
-}
-
 /** 매일 자동 수집 시각(UTC 시) → '매일 09:00 KST'. 설정이 없으면 null. */
 export function formatDailyKst(hourUtc: number | null | undefined): string | null {
   if (typeof hourUtc !== 'number' || !Number.isInteger(hourUtc) || hourUtc < 0 || hourUtc > 23) return null
   return `매일 ${pad((hourUtc + 9) % 24)}:00 KST`
-}
-
-/** 브라우저 로컬 시각 'YYYY-MM-DD HH:mm' (시간대 없는 ISO는 UTC로 해석) */
-export function formatLocalDateTime(iso: string | null | undefined): string {
-  const d = parseIso(iso)
-  if (!d) return EMPTY
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 /** 정수 건수: 3073 → '3,073'. 값이 없으면 '—'. */

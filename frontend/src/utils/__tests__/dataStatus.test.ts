@@ -6,7 +6,6 @@ import {
   formatDuration,
   formatInt,
   formatKst,
-  formatLocalDateTime,
   formatRelative,
   parseIso,
   summarizeCounts,
@@ -72,17 +71,6 @@ describe('KST 표기', () => {
     expect(formatDailyKst(null)).toBeNull()
     expect(formatDailyKst(undefined)).toBeNull()
     expect(formatDailyKst(24)).toBeNull()
-  })
-})
-
-describe('formatLocalDateTime', () => {
-  it("'YYYY-MM-DD HH:mm' 형식, naive는 UTC 기준", () => {
-    const s = formatLocalDateTime('2026-10-14T08:29:10')
-    expect(s).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/)
-    const d = new Date('2026-10-14T08:29:10Z')
-    const pad = (n: number) => String(n).padStart(2, '0')
-    expect(s).toBe(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`)
-    expect(formatLocalDateTime(null)).toBe(EMPTY)
   })
 })
 
