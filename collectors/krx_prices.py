@@ -3,9 +3,9 @@
     PYTHONPATH=backend:. python -m collectors.krx_prices --since 2015-01-01
 
 사용하는 API (모두 공공데이터포털 '금융위원회' 제공, 서비스키 1개로 공통 사용)
-- 지수시세정보     GetMarketIndexInfoService/getStockMarketIndex     → KOSPI, KOSPI_IT, KR_K200
-- 증권상품시세정보 GetSecuritiesProductInfoService/getETFPriceInfo    → US_EQ, US_TECH, KR_SEMI, KR_AUTO (국내 상장 ETF 종가)
-- 주식시세정보     GetStockSecuritiesInfoService/getStockPriceInfo    → (개별 종목이 필요할 때; 기본 매핑에는 없음)
+- 지수시세정보     GetMarketIndexInfoService_V2/getStockMarketIndex_V2     → KOSPI, KOSPI_IT, KR_K200
+- 증권상품시세정보 GetSecuritiesProductInfoService_V2/getETFPriceInfo_V2    → US_EQ, US_TECH, KR_SEMI, KR_AUTO (국내 상장 ETF 종가)
+- 주식시세정보     GetStockSecuritiesInfoService_V2/getStockPriceInfo_V2    → (개별 종목이 필요할 때; 기본 매핑에는 없음)
 
 설계 원칙 (docs/DESIGN.md 4장): 해외 주식 노출은 S&P 500 등 제3자 저작권 지수 대신 국내 상장 해외지수 ETF 로 대리한다.
 따라서 US_EQ 는 S&P 500 지수가 아니라 국내 상장 S&P 500 ETF 의 원화 종가(환헤지 없음 → 환율 효과가 포함됨)이다.
@@ -44,11 +44,12 @@ log = logging.getLogger("collectors.krx_prices")
 
 REQUIRED_KEY = "data_go_kr_api_key"  # 환경 변수 DATA_GO_KR_API_KEY
 DEFAULT_SINCE = date(2015, 1, 1)
-HOST = "https://apis.data.go.kr/1160100/service"
+HOST = "https://apis.data.go.kr/1160100"
+# 2026년 현재 포털은 V2 엔드포인트를 제공한다 (활용신청 화면의 End Point 기준). 키는 신청한 버전에만 등록된다.
 ENDPOINTS = {
-    "index": f"{HOST}/GetMarketIndexInfoService/getStockMarketIndex",
-    "etf": f"{HOST}/GetSecuritiesProductInfoService/getETFPriceInfo",
-    "stock": f"{HOST}/GetStockSecuritiesInfoService/getStockPriceInfo",
+    "index": f"{HOST}/GetMarketIndexInfoService_V2/getStockMarketIndex_V2",
+    "etf": f"{HOST}/GetSecuritiesProductInfoService_V2/getETFPriceInfo_V2",
+    "stock": f"{HOST}/GetStockSecuritiesInfoService_V2/getStockPriceInfo_V2",
 }
 SOURCE = "공공데이터포털 · 금융위원회 시세정보 (KRX 원천)"
 # ★ 활용신청 시 확인한 각 API 의 이용허락범위로 수정할 것 (예: "공공누리 제1유형", "이용허락범위 제한 없음").

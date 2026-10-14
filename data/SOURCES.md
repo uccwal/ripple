@@ -19,10 +19,10 @@ RIPPLE 이 쓰는 모든 시계열과 정책 이벤트의 출처, 수집기, 수
 | `USDKRW` | 원/달러 환율 (매매기준율, KRW) | 한국은행 ECOS OpenAPI · `StatisticSearch` | 통계표 `731Y001` · 항목 `0000001` · 주기 D | `collectors/ecos.py` | 한국은행 ECOS 이용약관 — 출처 표시 (한국은행 경제통계시스템) | 빈 `DATA_VALUE` 제거, 영업일, **변화율(%)** |
 | `KTB3Y` | 국고채 3년 금리 (%) | 한국은행 ECOS · 동일 | 통계표 `817Y002` · 항목 `010200000` · 주기 D | `collectors/ecos.py` | 동일 | 빈 값 제거, 영업일, **차분(%p)** |
 | `BOK_BASE_RATE` (선택) | 한국은행 기준금리 (%) | 한국은행 ECOS · 동일 | 통계표 `722Y001` · 항목 `0101000` · 주기 D | `collectors/ecos.py` | 동일 | 팩터 카탈로그에 없음. 이벤트 검증·화면 참고용. 실패해도 경고만 |
-| `KOSPI` | KOSPI 지수 | 공공데이터포털 · 금융위원회 **지수시세정보** `getStockMarketIndex` (원천 KRX) | `idxNm="코스피"`, 종가 `clpr` | `collectors/krx_prices.py` | 공공데이터포털 이용허락범위 (API 별 확인) — 출처 표시 (금융위원회·공공데이터포털) | `basDt`(YYYYMMDD) 파싱, 영업일, **변화율(%)** |
+| `KOSPI` | KOSPI 지수 | 공공데이터포털 · 금융위원회 **지수시세정보** `getStockMarketIndex_V2` (원천 KRX) | `idxNm="코스피"`, 종가 `clpr` | `collectors/krx_prices.py` | 공공데이터포털 이용허락범위 (API 별 확인) — 출처 표시 (금융위원회·공공데이터포털) | `basDt`(YYYYMMDD) 파싱, 영업일, **변화율(%)** |
 | `KOSPI_IT` | KOSPI 전기전자 업종지수 | 동일 | `idxNm="코스피 전기전자"` (명칭 확인 필요) | `collectors/krx_prices.py` | 동일 | 동일 |
 | `KR_K200` | KOSPI 200 지수 | 동일 | `idxNm="코스피 200"` | `collectors/krx_prices.py` | 동일 | 동일 (자산 가격 시계열) |
-| `US_EQ` | 미국 주식 대리 — TIGER 미국S&P500 ETF 종가 (KRW) | 공공데이터포털 · 금융위원회 **증권상품시세정보** `getETFPriceInfo` | 단축코드 `360750` | `collectors/krx_prices.py` | 동일 | ETF 원화 종가(환헤지 없음 → 환율 효과 포함), **변화율(%)** |
+| `US_EQ` | 미국 주식 대리 — TIGER 미국S&P500 ETF 종가 (KRW) | 공공데이터포털 · 금융위원회 **증권상품시세정보** `getETFPriceInfo_V2` | 단축코드 `360750` | `collectors/krx_prices.py` | 동일 | ETF 원화 종가(환헤지 없음 → 환율 효과 포함), **변화율(%)** |
 | `US_TECH` | 미국 기술주 대리 — TIGER 미국나스닥100 ETF 종가 (KRW) | 동일 | 단축코드 `133690` | `collectors/krx_prices.py` | 동일 | 동일 |
 | `KR_SEMI` | 국내 반도체 — KODEX 반도체 ETF 종가 (KRW) | 동일 | 단축코드 `091160` | `collectors/krx_prices.py` | 동일 | 동일 |
 | `KR_AUTO` | 국내 자동차 — KODEX 자동차 ETF 종가 (KRW) | 동일 | 단축코드 `091180` | `collectors/krx_prices.py` | 동일 | 동일 |
@@ -69,7 +69,7 @@ PYTHONPATH=backend:. python -m pytest collectors/tests -q                 # 파�
 | --- | --- | --- |
 | ECOS 통계표·항목 코드 | `collectors/ecos.py` `SERIES` | `731Y001/0000001`, `817Y002/010200000`, `722Y001/0101000` 을 ECOS 「통계코드검색」에서 확인. 일별(D) 주기 제공 여부 포함 |
 | KRX 지수명 | `collectors/krx_prices.py` `SERIES` | `idxNm` 정확 일치 값 "코스피", "코스피 200", 특히 업종지수 "코스피 전기전자" (KRX 업종 개편 시 명칭 변경 가능). 첫 실행 로그의 "일치하는 행이 없음" 경고 확인 |
-| 지수시세정보 API 의 업종지수 포함 여부 | 동일 | `getStockMarketIndex` 가 업종지수를 돌려주지 않으면 KOSPI_IT 대체 소스 필요 (예: KODEX 반도체 ETF 를 IT 업종 대리로) |
+| 지수시세정보 API 의 업종지수 포함 여부 | 동일 | `getStockMarketIndex_V2` 가 업종지수를 돌려주지 않으면 KOSPI_IT 대체 소스 필요 (예: KODEX 반도체 ETF 를 IT 업종 대리로) |
 | ETF 단축코드 | 동일 | 360750 / 133690 / 091160 / 091180 (상품명 변경·합병 시 교체). 종가 필드 `clpr`, 날짜 `basDt` |
 | data.go.kr 이용허락범위 | `krx_prices.LICENSE` | 활용신청 화면의 각 API 이용허락범위(공공누리 유형 또는 '제한 없음')로 문구 수정 |
 | 정책브리핑 API 응답 태그 | `collectors/korea_briefing.py` `parse_press_release_xml` | `NewsItem / Title / SubTitle1 / DataContents / MinisterCode / OriginalUrl / ApproveDate` 태그명과 `startDate/endDate` 파라미터, 공공누리 정보가 별도 필드로 오는지 |
