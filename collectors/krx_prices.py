@@ -27,8 +27,8 @@ from __future__ import annotations
 import argparse
 import logging
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
-from datetime import date
+from dataclasses import dataclass, replace
+from datetime import date, timedelta
 from typing import Any
 from urllib.parse import unquote
 
@@ -67,6 +67,8 @@ class KrxSpec:
     match_name: str = ""  # index: idxNm 정확히 일치 / etf·stock: itmsNm (참고용, 코드 없을 때 사용)
     code: str = ""  # etf·stock: 단축코드(srtnCd). 있으면 likeSrtnCd 로 조회 (이름 변경에 강함)
     note: str = ""
+    alt_names: tuple[str, ...] = ()  # index: match_name 으로 0건이면 차례로 시도할 다른 지수명
+    fallback: str = ""  # 모두 실패하면 이 series_id(SERIES 의 다른 항목)의 데이터를 대리로 저장
 
 
 # ============================================================================
@@ -77,7 +79,10 @@ class KrxSpec:
 SERIES: dict[str, KrxSpec] = {
     "KOSPI": KrxSpec("KOSPI", "index", "KOSPI 지수", "index", match_name="코스피"),
     "KOSPI_IT": KrxSpec("KOSPI_IT", "index", "KOSPI 전기전자 업종지수", "index", match_name="코스피 전기전자",
-                        note="업종지수 명칭은 ECOS·KRX 개편 시 확인"),
+                        note="업종지수 명칭은 ECOS·KRX 개편 시 확인",
+                        alt_names=("코스피 전기·전자", "코스피 전기,전자", "코스피200 정보기술", "코스피 200 정보기술",
+                                   "KOSPI 200 정보기술", "코스피 200 IT", "코스피200 IT", "코스피 전기전자업", "코스피 IT"),
+                        fallback="KR_SEMI"),
     "KR_K200": KrxSpec("KR_K200", "index", "KOSPI 200 지수", "index", match_name="코스피 200"),
     "US_EQ": KrxSpec("US_EQ", "etf", "TIGER 미국S&P500 ETF 종가 (S&P 500 대리, KRW·환노출)", "KRW",
                      match_name="TIGER 미국S&P500", code="360750"),
@@ -193,6 +198,19 @@ def fetch_all(client: httpx.Client, service_key: str, spec: KrxSpec, rng: DateRa
     return items
 
 
+def list_index_names(client: httpx.Client, service_key: str, rng: DateRange) -> list[str]:
+    """최근 거래일 하루치의 모든 지수명 (idxNm 없이 조회). 업종지수 명칭 확인용."""
+    url = ENDPOINTS["index"]
+    params: dict[str, Any] = {"serviceKey": service_key, "resultType": "json", "numOfRows": 1000, "pageNo": 1,
+                              "beginBasDt": base.yyyymmdd(rng.until - timedelta(days=10)), "endBasDt": base.yyyymmdd(rng.until)}
+    try:
+        got, _ = _get_items(client, url, params)
+    except CollectorError as exc:
+        log.warning("지수명 목록 조회 실패: %s", exc)
+        return []
+    return sorted({str(it.get("idxNm")) for it in got if it.get("idxNm")})
+
+
 def run(session: Session, rng: DateRange, *, api_key: str | None = None,
         client: httpx.Client | None = None, only: list[str] | None = None) -> dict[str, Any]:
     key = api_key or settings.data_go_kr_api_key
@@ -206,9 +224,29 @@ def run(session: Session, rng: DateRange, *, api_key: str | None = None,
         for sid, spec in SERIES.items():
             if only and sid not in only:
                 continue
+            name = spec.name
             items = fetch_all(client, key, spec, rng)
             if spec.kind == "index":
                 pts = items_to_points(items, expect_name=spec.match_name, name_field="idxNm")
+                # 지수명이 바뀌었을 수 있으니 후보 이름을 차례로 시도한다
+                for alt in spec.alt_names:
+                    if pts:
+                        break
+                    alt_spec = replace(spec, match_name=alt)
+                    items = fetch_all(client, key, alt_spec, rng)
+                    pts = items_to_points(items, expect_name=alt, name_field="idxNm")
+                    if pts:
+                        log.info("%s: 지수명 '%s' 으로 수집 (%d건)", sid, alt, len(pts))
+                        name = f"{spec.name} ({alt})"
+                if not pts and spec.fallback:
+                    # 끝내 못 찾으면 대리 시리즈로 저장하고, 포털이 돌려주는 지수명 목록을 기록한다
+                    seen = list_index_names(client, key, rng)
+                    counts[f"{sid}_names_seen"] = [n for n in seen if any(k in n for k in ("전기", "정보", "IT", "반도체", "기술"))][:20]
+                    fb = SERIES[spec.fallback]
+                    items = fetch_all(client, key, fb, rng)
+                    pts = items_to_points(items, name_field="itmsNm")
+                    name = f"{spec.name} 대리 — {fb.name}"
+                    log.warning("%s: 업종지수를 찾지 못해 %s 를 대리로 저장 (%d건)", sid, spec.fallback, len(pts))
             else:
                 pts = items_to_points(items, name_field="itmsNm")
                 names = {it.get("itmsNm") for it in items}
@@ -219,7 +257,7 @@ def run(session: Session, rng: DateRange, *, api_key: str | None = None,
                             sid, len(items), spec.match_name,
                             sorted({str(it.get('idxNm') or it.get('itmsNm')) for it in items})[:8])
             res = base.upsert_series(
-                session, series_id=spec.series_id, name=spec.name, source=SOURCE, unit=spec.unit, frequency="D",
+                session, series_id=spec.series_id, name=name, source=SOURCE, unit=spec.unit, frequency="D",
                 license=LICENSE, source_url=ENDPOINTS[spec.kind], points=pts)
             log.info("%s (%s %s): %s", sid, spec.kind, spec.code or spec.match_name, res.as_dict())
             counts[sid] = res.total
