@@ -190,7 +190,7 @@ def build_timeline(session: Session, run: Run) -> list[dict]:
                         "model": "", "tokens": "—"})
         else:
             v = step_view(s, run)
-            v["attempt"] = max(x.attempt for x in steps if x.agent == agent and x.status != "retry") or 1
+            v["attempt"] = max((x.attempt for x in steps if x.agent == agent and x.status != "retry"), default=1)
             out.append(v)
     # 반려 후 재실행 대기 중이면 뒤 단계는 wait로 되돌린다
     if any(v["status"] == "retry" for v in out):

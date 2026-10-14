@@ -50,7 +50,7 @@ def test_compute_identities(session):
     # 팩터 기여 합 = ΔP
     assert sum(f["contribution"] for f in r["factor_contrib"]) == pytest.approx(r["portfolio_pnl"])
     assert r["range"]["low"] <= r["portfolio_pnl"] <= r["range"]["high"]
-    assert r["pnl_amount"] == pytest.approx(r["portfolio_pnl"] / 100 * ctx.portfolio.aum)
+    assert r["pnl_amount"] == pytest.approx(r["portfolio_pnl"] / 100 * ctx.portfolio.aum, abs=5)  # 10억 원 단위 반올림
     assert len(r["top_contributors"]) == 5
     # 계산 로그: 모든 보고서 키 존재, 코드 해시 형식
     log = out["calc_log"]

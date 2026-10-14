@@ -70,7 +70,8 @@ def build(rc: RunContext):
             rc.steps.fail(step, str(e))
             raise
         rc.steps.finish(step, {"summary": meta["summary"]}, meta["model"], meta["tokens"], meta.get("note", ""))
-        return {"event": event, "title": f"{event['country_name']} {event['title']}" + (f" ({event['value_text']})" if event["value_text"] else "")}
+        head = event["title"] if event["title"].startswith(event["country_name"]) else f"{event['country_name']} {event['title']}"
+        return {"event": event, "title": head + (f" ({event['value_text']})" if event["value_text"] else "")}
 
     def node_impact_mapper(state: RunState) -> dict:
         rc.engine(state)

@@ -59,6 +59,7 @@ cd <repo>
 PYTHONPATH=backend:. python -m collectors.run_all --list                 # 수집기·필요 키 확인
 PYTHONPATH=backend:. python -m collectors.run_all --only fred             # 수집기별 스모크 테스트
 PYTHONPATH=backend:. python -m collectors.run_all --since 2015-01-01      # 전체 (하루 1회)
+PYTHONPATH=backend:. python -m collectors.run_all --strict                # cron 용: API·네트워크 오류도 종료 코드 1
 PYTHONPATH=backend:. python -m pytest collectors/tests -q                 # 파서·적재 테스트 (네트워크 불필요)
 ```
 

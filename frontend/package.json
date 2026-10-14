@@ -1,0 +1,38 @@
+{
+  "name": "ripple-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vue-flow/core": "1.48.2",
+    "dompurify": "3.4.16",
+    "echarts": "6.1.0",
+    "marked": "16.4.2",
+    "pinia": "3.0.4",
+    "vue": "3.5.43",
+    "vue-echarts": "8.3.1",
+    "vue-router": "4.6.4"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "22.0.2",
+    "@types/node": "22.18.0",
+    "@vitejs/plugin-vue": "6.0.9",
+    "@vue/test-utils": "2.4.6",
+    "@vue/tsconfig": "0.8.1",
+    "autoprefixer": "10.4.21",
+    "jsdom": "29.1.1",
+    "postcss": "8.5.28",
+    "tailwindcss": "3.4.19",
+    "typescript": "5.9.3",
+    "vite": "7.3.6",
+    "vitest": "4.1.11",
+    "vue-tsc": "3.3.11"
+  }
+}

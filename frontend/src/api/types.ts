@@ -1,0 +1,374 @@
+/**
+ * docs/API_CONTRACT.md 의 응답 형태를 그대로 옮긴 타입.
+ * 단위: 손익·수익률 %, 기여도 %p, 금액 억 원, 날짜 YYYY-MM-DD / ISO 8601.
+ */
+
+export type CountryCode = 'US' | 'KR' | 'EU' | 'CN'
+export type EventType = 'tariff' | 'rate' | 'regulation'
+export type Entry = 'event' | 'scenario'
+export type Confidence = 'high' | 'mid' | 'low'
+export type Direction = '+' | '-'
+export type Layer = 'policy' | 'industry' | 'macro' | 'asset'
+export type LlmMode = 'anthropic' | 'offline'
+export type RunStatus = 'queued' | 'running' | 'done' | 'partial' | 'failed'
+export type StepStatus = 'wait' | 'running' | 'done' | 'retry' | 'failed' | 'skip'
+export type ValidationStatus = 'pass' | 'warn' | 'fail'
+export type ShockUnit = '%' | '%p'
+
+/* ---------- /api/meta ---------- */
+
+export interface Meta {
+  service: string
+  engine_version: string
+  llm_mode: LlmMode
+  model_default: string
+  last_collected_at: string | null
+  today_event_count: number
+  today_event_delta: number
+  events_by_source: { source: string; count: number }[]
+  synthetic_data: boolean
+}
+
+/* ---------- /api/events ---------- */
+
+export interface EventSummary {
+  event_id: string
+  country: CountryCode
+  country_name: string
+  type: EventType
+  type_name: string
+  title: string
+  summary: string
+  targets: string[]
+  value: number | null
+  value_text: string
+  announced_at: string
+  source: string
+  source_url: string | null
+  is_demo: boolean
+  last_run: { run_id: string; portfolio_pnl: number | null } | null
+}
+
+export interface EventDetail extends EventSummary {
+  raw_text: string
+  collected_at: string
+}
+
+export interface EventQuery {
+  country?: CountryCode
+  type?: EventType
+  days?: 7 | 30 | 90
+}
+
+/* ---------- /api/portfolios ---------- */
+
+export interface PortfolioSummary {
+  portfolio_id: string
+  name: string
+  base_currency: string
+  description: string
+  aum: number
+  holdings_count: number
+}
+
+export interface Holding {
+  asset_id: string
+  name: string
+  asset_class: string
+  currency: string
+  sector: string
+  /** % (합계 100) */
+  weight: number
+}
+
+export interface PortfolioDetail extends Omit<PortfolioSummary, 'holdings_count'> {
+  holdings: Holding[]
+}
+
+/* ---------- /api/runs ---------- */
+
+export interface CreateRunRequest {
+  entry: Entry
+  event_id?: string
+  scenario_text?: string
+  portfolio_id: string
+  horizon_days?: number
+}
+
+export interface RunIdResponse {
+  run_id: string
+}
+
+export interface Step {
+  idx: number
+  agent: string
+  desc: string
+  status: StepStatus
+  attempt: number
+  elapsed_ms: number | null
+  note: string | null
+  input_summary: string | null
+  output_summary: string | null
+  model: string | null
+  tokens: string | null
+}
+
+export interface RetryLoop {
+  from_idx: number
+  to_idx: number
+}
+
+export interface RunEvent {
+  event_id: string
+  country: CountryCode
+  type: EventType
+  title: string
+  targets: string[]
+  value: number | null
+  value_text: string
+  announced_at: string
+  source: string
+  source_url: string | null
+}
+
+export interface PathStep {
+  from: string
+  to: string
+  direction: Direction
+  confidence: Confidence
+  evidence: string[]
+}
+
+export interface ImpactPath {
+  path_id: string
+  excluded: boolean
+  reason: string | null
+  steps: PathStep[]
+}
+
+export interface Evidence {
+  id: string
+  text: string
+  source: string
+  collected_at: string
+}
+
+export interface GraphNode {
+  id: string
+  label: string
+  layer: Layer
+  confidence: Confidence
+  factor_id: string | null
+  direction_text: string
+  evidence: Evidence[]
+}
+
+export interface GraphEdge {
+  source: string
+  target: string
+  direction: Direction
+  confidence: Confidence
+}
+
+export interface Graph {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+}
+
+export interface Shock {
+  variable: string
+  name: string
+  change: number
+  unit: ShockUnit
+  basis: string
+  hist_max: number
+  hist_pct: number
+  over_hist: boolean
+}
+
+export interface Scenario {
+  horizon_days: number
+  shocks: Shock[]
+}
+
+export interface Regime {
+  start: string
+  end: string
+  similarity: number
+  tag: string
+  pnl: number
+  factor_changes: Record<string, number>
+}
+
+export interface AssetResult {
+  asset_id: string
+  name: string
+  weight: number
+  ret: number
+  contribution: number
+  currency: string
+  sector: string
+  asset_class: string
+}
+
+export interface FactorContribution {
+  factor_id: string
+  name: string
+  beta: number
+  se: number
+  shock: number
+  unit: ShockUnit
+  contribution: number
+  share: number
+}
+
+export interface Hedge {
+  rule_id: string
+  title: string
+  why: string
+  rule: string
+  key: string
+}
+
+export interface RunResult {
+  portfolio_pnl: number
+  pnl_amount: number
+  aum: number
+  range: { low: number; high: number }
+  by_asset: AssetResult[]
+  top_contributors: string[]
+  factor_contrib: FactorContribution[]
+  regime_estimate: { median: number; low: number; high: number; n: number } | null
+  hedges: Hedge[]
+  calc_log_id: string
+}
+
+export interface ValidationIssue {
+  code: string
+  severity: 'warn' | 'error'
+  agent: string
+  message: string
+}
+
+export interface Validation {
+  passed: boolean
+  status: ValidationStatus
+  rules_total: number
+  rules_passed: number
+  issues: ValidationIssue[]
+}
+
+export interface Citation {
+  n: number
+  name: string
+  collected_at: string
+  url: string | null
+}
+
+export interface Report {
+  markdown: string
+  citations: Citation[]
+}
+
+export interface RunState {
+  run_id: string
+  parent_run_id: string | null
+  entry: Entry
+  status: RunStatus
+  error: string | null
+  title: string
+  input_text: string | null
+  portfolio: { portfolio_id: string; name: string; aum: number }
+  horizon_days: number
+  as_of: string
+  created_at: string
+  finished_at: string | null
+  elapsed_ms: number | null
+  llm_mode: LlmMode
+  synthetic_data: boolean
+  event: RunEvent | null
+  impact_paths: ImpactPath[]
+  graph: Graph | null
+  scenario: Scenario | null
+  regimes: Regime[]
+  result: RunResult | null
+  validation: Validation | null
+  report: Report | null
+  steps: Step[]
+  /** Validator 반려 루프 (타임라인 화살표). 반려가 없으면 빈 배열 또는 생략. */
+  retry_loops?: RetryLoop[]
+}
+
+export interface RunListItem {
+  run_id: string
+  created_at: string
+  entry: Entry
+  title: string
+  portfolio_name: string
+  portfolio_pnl: number | null
+  validation_status: ValidationStatus | null
+  status: RunStatus
+}
+
+export interface ScenarioPatchRequest {
+  shocks: { variable: string; change: number }[]
+}
+
+/* ---------- SSE /api/runs/{id}/stream ---------- */
+
+export type StreamEventName = 'step_started' | 'step_finished' | 'step_retry' | 'step_failed' | 'run_finished'
+
+export const STREAM_EVENTS: readonly StreamEventName[] = [
+  'step_started',
+  'step_finished',
+  'step_retry',
+  'step_failed',
+  'run_finished',
+]
+
+export interface StreamPayload {
+  run_id: string
+  status: RunStatus
+  elapsed_ms: number
+  current: string | null
+  step: Step | null
+  steps: Step[]
+  retry_loops: RetryLoop[]
+}
+
+/* ---------- /api/runs/{id}/calc-log ---------- */
+
+export interface CalcCell {
+  v: string
+  /** 있으면 손익색 + 700 */
+  num?: number
+}
+
+export interface CalcEntry {
+  title: string
+  value: number | null
+  value_text: string
+  sub: string | null
+  formula: string
+  columns: string[]
+  rows: CalcCell[][]
+  note: string | null
+}
+
+export interface CalcSource {
+  name: string
+  collected_at: string
+  synthetic: boolean
+}
+
+export interface CalcLog {
+  calc_id: string
+  run_id: string
+  code_hash: string
+  engine_version: string
+  created_at: string
+  sources: CalcSource[]
+  entries: Record<string, CalcEntry>
+  inputs: Record<string, unknown>
+  outputs: Record<string, unknown>
+}

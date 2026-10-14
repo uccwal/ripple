@@ -50,7 +50,7 @@ def _offline(event: dict, stats: dict, as_of: str) -> ImpactPaths:
     def c(evs: list[str]) -> str:
         """근거 수로 확신도를 정한다 (Validator 규칙과 동일: high ≥2, mid ≥1, 그 외 low)."""
         return "high" if len(evs) >= 2 else "mid" if evs else "low"
-    label = event["title"][:18].rstrip(",·, ")
+    label = event["title"][:18].rstrip(",· ")
     if t == "tariff":
         nodes = [PathNode(id="n1", label=label, layer="policy", factor_id=None, direction_text="출발 이벤트"),
                  PathNode(id="n2", label="대상 품목 수출 감소", layer="industry", factor_id=None, direction_text="관세 → 수출 (−)"),

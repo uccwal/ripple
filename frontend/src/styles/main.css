@@ -1,0 +1,88 @@
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    margin: 0;
+    background: theme('colors.bg');
+  }
+  body {
+    @apply font-sans text-ink antialiased;
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: -0.005em;
+    word-break: keep-all;
+  }
+  input,
+  select,
+  textarea,
+  button {
+    font-family: inherit;
+    letter-spacing: inherit;
+  }
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+  a {
+    color: theme('colors.navy.900');
+  }
+  a:hover {
+    color: theme('colors.navy.700');
+  }
+  :focus-visible {
+    outline: 2px solid theme('colors.navy.300');
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /** 흰 배경 + 1px #E3E6EB + radius 8, 그림자 없음 */
+  .rp-card {
+    @apply rounded-card border border-line bg-surface;
+  }
+  .rp-select {
+    @apply rounded border border-line-strong bg-surface text-ink;
+    padding: 0 8px;
+  }
+  .rp-input {
+    @apply rounded border border-line-strong bg-surface text-ink;
+    padding: 0 10px;
+  }
+  .rp-input:focus,
+  .rp-select:focus {
+    @apply border-navy-900;
+    outline: none;
+    box-shadow: theme('boxShadow.focus');
+  }
+  /** 표 헤더 줄 */
+  .rp-thead {
+    @apply bg-surface-sunken text-caption font-semibold text-ink-3;
+  }
+  .rp-section-label {
+    @apply text-small font-bold text-ink-2;
+  }
+}
+
+@layer utilities {
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  .nowrap-none {
+    white-space: nowrap;
+    flex: none;
+  }
+  .ellipsis {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

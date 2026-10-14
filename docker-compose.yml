@@ -1,0 +1,64 @@
+# RIPPLE 전체 스택: PostgreSQL + API(+정적 프론트엔드) + 하루 1회 수집기
+#   cp .env.example .env   (키는 비워도 동작 — offline 모드 + 합성 시계열)
+#   docker compose up --build
+#   → http://localhost:8000
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ripple
+      POSTGRES_PASSWORD: ripple
+      POSTGRES_DB: ripple
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ripple"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  frontend-build:
+    image: node:22-alpine
+    working_dir: /src
+    volumes:
+      - ./frontend:/src
+      - frontend_dist:/src/dist
+    command: sh -c "npm ci && npm run build"
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://ripple:ripple@db:5432/ripple
+      # 실제 데이터를 수집하기 전까지는 합성 시계열로 데모 (상단에 '합성 데이터' 배지 표시)
+      SEED_ARGS: --synthetic
+    volumes:
+      - frontend_dist:/app/frontend/dist:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      frontend-build:
+        condition: service_completed_successfully
+
+  collector:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://ripple:ripple@db:5432/ripple
+      PYTHONPATH: /app/backend:/app
+    working_dir: /app
+    # 하루 1회 수집. API 키가 없는 수집기는 건너뛴다.
+    command: sh -c "while true; do python -m collectors.run_all; sleep 86400; done"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  frontend_dist:

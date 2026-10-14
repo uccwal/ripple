@@ -179,7 +179,7 @@ def compute(ctx: Context, shocks: dict[str, float], regimes: list[Regime], run_i
     aum = ctx.portfolio.aum
     result = {
         "portfolio_pnl": total,
-        "pnl_amount": total / 100 * aum,
+        "pnl_amount": round(total / 100 * aum / 10) * 10,  # 10억 원 단위, 보고서·근거 패널과 동일
         "aum": aum,
         "range": rng,
         "by_asset": [{k: v for k, v in a.items() if k != "parts"} for a in by_asset],
