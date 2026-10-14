@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
-from . import runner
+from . import collect, runner
 from .api.routes import router
 from .config import REPO_ROOT, settings
 from .db import init_db
@@ -28,6 +28,7 @@ log = logging.getLogger("ripple")
 async def lifespan(app: FastAPI):
     init_db()
     runner.set_loop(asyncio.get_running_loop())
+    collect.start_scheduler()
     log.info("RIPPLE 시작 · LLM 모드 %s · 모델 %s", settings.llm_mode, settings.model_default)
     yield
 

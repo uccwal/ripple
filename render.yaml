@@ -24,6 +24,10 @@ services:
         value: claude-haiku-5-5
       - key: MODEL_IMPACT_MAPPER
         value: claude-haiku-5-5
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: COLLECT_DAILY_HOUR_UTC
+        value: "0"
       - key: FRED_API_KEY
         sync: false
       - key: ECOS_API_KEY

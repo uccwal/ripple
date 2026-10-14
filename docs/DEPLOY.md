@@ -35,6 +35,27 @@ docker compose logs -f api
 2. 프론트: `cd frontend && VITE_API_BASE=https://<API 도메인> npm run build` → `dist/`를 Vercel/Netlify/Cloudflare Pages에 올린다.
 3. SSE(`/api/runs/{id}/stream`)가 통과하는지 확인한다 (일부 PaaS는 응답 버퍼링을 한다).
 
+## 실데이터로 바꾸기 (합성 데이터 배지 제거)
+
+Render 무료 서버는 재시작하면 컨테이너 안 SQLite가 지워지므로, 실데이터를 유지하려면 Postgres를 먼저 붙인다.
+
+1. **Postgres**: Render → New → Postgres (Free) → 생성 후 **Internal Database URL** 복사 → Web Service 환경 변수 `DATABASE_URL`에 붙여넣기 (재배포됨).
+2. **API 키 발급** (모두 무료, 발급 즉시 사용):
+   | 키 | 발급처 | 시간 |
+   | --- | --- | --- |
+   | `FRED_API_KEY` | https://fred.stlouisfed.org/docs/api/api_key.html (계정 → Request API key) | 즉시 |
+   | `ECOS_API_KEY` | https://ecos.bok.or.kr → 로그인 → 인증키 신청 | 즉시~수 분 |
+   | `DATA_GO_KR_API_KEY` | https://www.data.go.kr → 회원가입 → "금융위원회_지수시세정보", "금융위원회_증권상품시세정보" 각각 **활용신청** → 마이페이지 → 일반 인증키(Decoding) | 자동승인, 1시간 안팎 |
+3. Web Service 환경 변수에 세 키와 `ADMIN_TOKEN`(아무 긴 문자열), `COLLECT_DAILY_HOUR_UTC=0`(매일 09:00 KST 자동 수집) 추가.
+4. 첫 적재(5년치)는 수동으로 한 번:
+   ```bash
+   curl -X POST https://<api-host>/api/admin/collect -H "X-Admin-Token: <ADMIN_TOKEN>" \
+        -H "content-type: application/json" -d '{"since": "2015-01-01"}'
+   curl https://<api-host>/api/admin/collect/status -H "X-Admin-Token: <ADMIN_TOKEN>"   # 진행 상황
+   ```
+   끝나면 `/api/meta`의 `synthetic_data`가 `false`가 되고 화면 상단 배지가 사라진다. 이후엔 매일 자동 수집된다.
+5. 수집기가 `error`를 돌려주면 `data/SOURCES.md` §5의 "확인 필요" 항목(ECOS 통계코드, KRX 지수명·ETF 코드)을 실제 응답에 맞춰 고친다.
+
 ## 심사 기간 운영 체크리스트
 
 - [ ] `.env`에 실제 키 설정, `LLM_MODE` 비움 → `/api/meta`의 `llm_mode`가 `anthropic`

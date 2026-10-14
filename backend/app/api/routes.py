@@ -7,13 +7,13 @@ import threading
 from datetime import date, datetime, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .. import graph, runner
+from .. import collect, graph, runner
 from ..config import settings
 from ..db import get_session
 from ..engine.catalog import FACTOR_BY_ID
@@ -299,3 +299,33 @@ def series(series_id: str, start: date | None = None, end: date | None = None, s
     pts = s.execute(q.order_by(SeriesValue.date)).all()
     return {"series_id": series_id, "name": meta.name, "unit": meta.unit, "source": meta.source, "license": meta.license,
             "source_url": meta.source_url, "points": [{"date": d.isoformat(), "value": v} for d, v in pts]}
+
+
+# ------------------------------------------------------------------ admin: 서버 안에서 수집기 실행
+
+def _check_admin(token: str | None) -> None:
+    if not settings.admin_token:
+        raise HTTPException(404, "관리용 API가 비활성 상태입니다 (ADMIN_TOKEN 미설정)")
+    if token != settings.admin_token:
+        raise HTTPException(403, "토큰이 올바르지 않습니다")
+
+
+class CollectRequest(BaseModel):
+    since: date | None = None
+    only: list[str] | None = None
+
+
+@router.post("/admin/collect", status_code=202)
+def admin_collect(body: CollectRequest | None = None, x_admin_token: str | None = Header(default=None)):
+    """수집기를 백그라운드로 실행한다. 진행 상황은 GET /api/admin/collect/status."""
+    _check_admin(x_admin_token)
+    body = body or CollectRequest()
+    if not collect.start_background(body.since, body.only):
+        raise HTTPException(409, "이미 수집이 진행 중입니다")
+    return {"started": True, "since": body.since.isoformat() if body.since else None, "only": body.only}
+
+
+@router.get("/admin/collect/status")
+def admin_collect_status(x_admin_token: str | None = Header(default=None)):
+    _check_admin(x_admin_token)
+    return collect.status()

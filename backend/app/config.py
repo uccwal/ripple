@@ -44,6 +44,11 @@ class Settings:
     beta_window_days: int = int(os.getenv("BETA_WINDOW_DAYS") or 1250)  # 약 5년
     beta_min_obs: int = 250
 
+    # 관리용 API (POST /api/admin/collect) 토큰. 비우면 관리용 API 비활성
+    admin_token: str | None = os.getenv("ADMIN_TOKEN") or None
+    # 매일 자동 수집 시각 (UTC 시, 0~23). 비우면 자동 수집 안 함. 0 = 09:00 KST
+    collect_daily_hour_utc: int | None = int(os.environ["COLLECT_DAILY_HOUR_UTC"]) if os.getenv("COLLECT_DAILY_HOUR_UTC") else None
+
     fred_api_key: str | None = os.getenv("FRED_API_KEY") or None
     ecos_api_key: str | None = os.getenv("ECOS_API_KEY") or None
     data_go_kr_api_key: str | None = os.getenv("DATA_GO_KR_API_KEY") or None
