@@ -5,6 +5,7 @@ import CountryCode from '@/components/common/CountryCode.vue'
 import RpBadge from '@/components/common/RpBadge.vue'
 import RpButton from '@/components/common/RpButton.vue'
 import { formatDate } from '@/utils/format'
+import { RELEVANCE_BADGE, RELEVANCE_TIP } from '@/utils/labels'
 
 defineProps<{ event: EventSummary }>()
 </script>
@@ -15,6 +16,9 @@ defineProps<{ event: EventSummary }>()
       <CountryCode :code="event.country" />
       <span class="text-small text-ink-2">{{ event.country_name }}</span>
       <RpBadge variant="outline">{{ event.type_name }}</RpBadge>
+      <RpBadge v-if="event.relevance" :variant="RELEVANCE_BADGE[event.relevance].variant" :tooltip="RELEVANCE_TIP">
+        {{ RELEVANCE_BADGE[event.relevance].text }}
+      </RpBadge>
       <RpBadge
         v-if="event.is_demo"
         variant="virtual"
@@ -26,6 +30,7 @@ defineProps<{ event: EventSummary }>()
 
     <div>
       <h3 class="m-0 text-heading font-bold tracking-[-0.01em]">{{ event.title }}</h3>
+      <div v-if="event.title_orig" class="ellipsis mt-0.5 text-micro text-ink-3" :title="event.title_orig" lang="en">{{ event.title_orig }}</div>
       <p class="m-0 mt-0.5 text-small text-ink-2">{{ event.summary }}</p>
     </div>
 

@@ -14,6 +14,8 @@ export type RunStatus = 'queued' | 'running' | 'done' | 'partial' | 'failed'
 export type StepStatus = 'wait' | 'running' | 'done' | 'retry' | 'failed' | 'skip'
 export type ValidationStatus = 'pass' | 'warn' | 'fail'
 export type ShockUnit = '%' | '%p'
+/** 수집 시 Claude가 판정한 포트폴리오 관련성 (offline 모드·예시 이벤트는 null) */
+export type Relevance = 'high' | 'mid' | 'low'
 
 /* ---------- /api/meta ---------- */
 
@@ -46,6 +48,9 @@ export interface EventSummary {
   source: string
   source_url: string | null
   is_demo: boolean
+  /** 원문 제목 (외국어 이벤트를 한국어로 구조화한 경우). 한국어·예시 이벤트는 null */
+  title_orig: string | null
+  relevance: Relevance | null
   last_run: { run_id: string; portfolio_pnl: number | null } | null
 }
 
@@ -58,6 +63,10 @@ export interface EventQuery {
   country?: CountryCode
   type?: EventType
   days?: 7 | 30 | 90
+  /** high: 높음만 · mid: 높음·중간 (미평가·예시 이벤트는 항상 포함) · 생략: 전체 */
+  relevance?: 'high' | 'mid'
+  /** 기본 200 */
+  limit?: number
 }
 
 /* ---------- /api/portfolios ---------- */

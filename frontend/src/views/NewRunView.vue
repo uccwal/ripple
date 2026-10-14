@@ -13,7 +13,7 @@ import { useEventStore } from '@/stores/events'
 import { useLiveRunsStore } from '@/stores/liveRuns'
 import { usePortfolioStore } from '@/stores/portfolios'
 import { formatDate } from '@/utils/format'
-import { PIPELINE } from '@/utils/labels'
+import { PIPELINE, RELEVANCE_ORDER } from '@/utils/labels'
 
 /** S2 새 분석 (/new?event=<id> | ?entry=scenario) */
 const route = useRoute()
@@ -35,6 +35,20 @@ const portfolioId = ref<string>('')
 const horizon = ref('20')
 const submitting = ref(false)
 const submitError = ref<string | null>(null)
+/** 관련성 낮음 이벤트도 선택 목록에 보인다 (기본 숨김) */
+const includeLow = ref(false)
+
+/** 선택 목록: 관련성 높음 → 중간 → 미평가 → 낮음, 같은 등급은 최신 발표 순 */
+const eventOptions = computed(() =>
+  allEvents.value
+    .filter((e) => includeLow.value || e.relevance !== 'low')
+    .sort(
+      (a, b) =>
+        RELEVANCE_ORDER[a.relevance ?? 'none'] - RELEVANCE_ORDER[b.relevance ?? 'none'] ||
+        b.announced_at.localeCompare(a.announced_at),
+    ),
+)
+const lowCount = computed(() => allEvents.value.filter((e) => e.relevance === 'low').length)
 
 const selectedEvent = computed(() => allEvents.value.find((e) => e.event_id === eventId.value) ?? null)
 const horizonNum = computed(() => Number(horizon.value))
@@ -79,9 +93,19 @@ async function start(): Promise<void> {
   }
 }
 
-watch(allEvents, (list) => {
-  if (!list.some((e) => e.event_id === eventId.value)) eventId.value = list[0]?.event_id ?? ''
-})
+// 선택된 이벤트가 목록에 없으면 첫 항목으로. 쿼리로 넘어온 이벤트가 관련성 낮음이면 숨기지 않고 보여 준다.
+watch(
+  [allEvents, eventOptions],
+  ([list, options]) => {
+    const chosen = list.find((e) => e.event_id === eventId.value)
+    if (chosen?.relevance === 'low' && !includeLow.value) {
+      includeLow.value = true
+      return
+    }
+    if (!options.some((e) => e.event_id === eventId.value)) eventId.value = options[0]?.event_id ?? ''
+  },
+  { immediate: true },
+)
 watch(
   () => portfolioStore.selectedId,
   (id) => {
@@ -156,8 +180,12 @@ onMounted(() => {
         <label class="flex items-center gap-3">
           <span class="text-caption font-normal text-ink-3">선택된 이벤트</span>
           <select v-model="eventId" class="rp-select ml-auto h-8 min-w-[320px] text-small">
-            <option v-for="e in allEvents" :key="e.event_id" :value="e.event_id">{{ e.country_name }} · {{ e.title }}</option>
+            <option v-for="e in eventOptions" :key="e.event_id" :value="e.event_id">{{ e.country_name }} · {{ e.title }}</option>
           </select>
+        </label>
+        <label v-if="lowCount" class="flex cursor-pointer items-center justify-end gap-1.5 text-caption font-normal text-ink-3">
+          <input v-model="includeLow" type="checkbox" class="m-0 h-3.5 w-3.5 cursor-pointer accent-navy-900" />
+          관련성 낮음 포함 ({{ lowCount }}건)
         </label>
         <div v-if="selectedEvent" class="flex items-center gap-4 rounded bg-bg px-4 py-3.5">
           <CountryCode :code="selectedEvent.country" tone="white" />

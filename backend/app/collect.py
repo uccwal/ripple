@@ -46,6 +46,18 @@ def run(since: date | None = None, only: list[str] | None = None) -> list[dict]:
             log.info(rep.line())
             reports.append({"collector": rep.collector, "status": rep.status, "message": rep.message, "counts": rep.counts})
             _state["reports"] = list(reports)
+        # 시계열에서 파생하는 이벤트 (한국은행 기준금리 결정)
+        from .derive_events import derive_bok_rate_events  # noqa: PLC0415
+
+        try:
+            d = derive_bok_rate_events()
+            reports.append({"collector": "bok_rate_events", "status": "skipped" if d.get("skipped") else "ok",
+                            "message": "한국은행 기준금리 결정 이벤트 (ECOS 시계열 파생)" + (f" — {d['skipped']}" if d.get("skipped") else ""),
+                            "counts": {k: v for k, v in d.items() if k != "skipped"}})
+        except Exception as e:  # noqa: BLE001
+            log.exception("기준금리 이벤트 파생 실패")
+            reports.append({"collector": "bok_rate_events", "status": "error", "message": f"{type(e).__name__}: {e}", "counts": {}})
+        _state["reports"] = list(reports)
         # 수집된 외국어 이벤트를 한국어로 구조화 (LLM 모드일 때만)
         from .localize import localize_pending  # noqa: PLC0415
 

@@ -5,6 +5,7 @@ import type {
   Entry,
   EventType,
   Layer,
+  Relevance,
   SeriesRole,
   StepStatus,
   ValidationStatus,
@@ -86,6 +87,20 @@ export const PIPELINE: Record<Entry, string> = {
   event: 'Event Analyst → Impact Mapper → Scenario Builder → Regime Finder → Risk Engine → Validator → Report Writer',
   scenario: 'Scenario Builder → Regime Finder → Risk Engine → Validator → Report Writer',
 }
+
+/* ---------- 이벤트 관련성 (S1·S2) ---------- */
+
+/** 관련성 배지 — 확신도 배지와 같은 시각 언어 (높음 navy 채움 · 중간 navy-50 · 낮음 점선) */
+export const RELEVANCE_BADGE: Record<Relevance, { text: string; variant: 'conf-high' | 'conf-mid' | 'conf-low' }> = {
+  high: { text: '관련성 높음', variant: 'conf-high' },
+  mid: { text: '관련성 중간', variant: 'conf-mid' },
+  low: { text: '관련성 낮음', variant: 'conf-low' },
+}
+
+export const RELEVANCE_TIP = '포트폴리오 관련성 — 수집 시 Claude가 판정'
+
+/** S2 선택 목록 정렬 순서: 높음 → 중간 → 미평가 → 낮음 */
+export const RELEVANCE_ORDER: Record<Relevance | 'none', number> = { high: 0, mid: 1, none: 2, low: 3 }
 
 /* ---------- S7 데이터 관리 ---------- */
 

@@ -59,3 +59,19 @@ def test_ensure_columns_adds_missing(tmp_path):
 def test_localize_offline_noop():
     from app.localize import localize_pending
     assert localize_pending() == {"done": 0, "failed": 0, "skipped": "offline"}
+
+
+def test_derive_bok_rate_events(session):
+    from datetime import date
+
+    from app.derive_events import derive_bok_rate_events
+    from app.models.tables import PolicyEvent, Series, SeriesValue
+    session.merge(Series(series_id="BOK_BASE_RATE", name="기준금리", source="한국은행 ECOS", unit="%", license="출처 표시"))
+    for d, v in [(date(2024, 1, 11), 3.5), (date(2024, 1, 12), 3.5), (date(2024, 10, 11), 3.25), (date(2024, 11, 28), 3.0)]:
+        session.merge(SeriesValue(series_id="BOK_BASE_RATE", date=d, value=v))
+    session.commit()
+    out = derive_bok_rate_events()
+    assert out["created"] == 2 and out["total"] == 2
+    ev = session.get(PolicyEvent, "bok_rate_20241011")
+    assert ev.country == "KR" and ev.type == "rate" and ev.value == -0.25 and "인하" in ev.title and ev.value_text == "−0.25%p"
+    assert derive_bok_rate_events()["created"] == 0  # 멱등

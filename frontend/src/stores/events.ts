@@ -5,16 +5,19 @@ import type { CountryCode, EventSummary, EventType } from '@/api/types'
 import type { LoadState } from './types'
 
 export type PeriodDays = 7 | 30 | 90
+/** mid: 높음·중간(기본) · high: 높음만 · all: 전체 */
+export type RelevanceFilter = 'mid' | 'high' | 'all'
 
 export interface EventFilters {
   country: CountryCode | 'all'
   type: EventType | 'all'
   period: PeriodDays
+  relevance: RelevanceFilter
 }
 
 /** S1 이벤트 목록(필터 적용)과 S2 이벤트 선택 목록(전체) */
 export const useEventStore = defineStore('events', () => {
-  const filters = ref<EventFilters>({ country: 'all', type: 'all', period: 30 })
+  const filters = ref<EventFilters>({ country: 'all', type: 'all', period: 30, relevance: 'mid' })
   const events = ref<EventSummary[]>([])
   const state = ref<LoadState>('idle')
   const error = ref<string | null>(null)
@@ -38,6 +41,7 @@ export const useEventStore = defineStore('events', () => {
           country: f.country === 'all' ? undefined : f.country,
           type: f.type === 'all' ? undefined : f.type,
           days: f.period,
+          relevance: f.relevance === 'all' ? undefined : f.relevance,
         },
         ctrl.signal,
       )
