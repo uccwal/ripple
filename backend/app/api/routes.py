@@ -316,9 +316,10 @@ class CollectRequest(BaseModel):
 
 
 @router.post("/admin/collect", status_code=202)
-def admin_collect(body: CollectRequest | None = None, x_admin_token: str | None = Header(default=None)):
+def admin_collect(body: CollectRequest | None = None, x_admin_token: str | None = Header(default=None),
+                  token: str | None = Query(default=None)):
     """수집기를 백그라운드로 실행한다. 진행 상황은 GET /api/admin/collect/status."""
-    _check_admin(x_admin_token)
+    _check_admin(x_admin_token or token)
     body = body or CollectRequest()
     if not collect.start_background(body.since, body.only):
         raise HTTPException(409, "이미 수집이 진행 중입니다")
@@ -326,6 +327,18 @@ def admin_collect(body: CollectRequest | None = None, x_admin_token: str | None 
 
 
 @router.get("/admin/collect/status")
-def admin_collect_status(x_admin_token: str | None = Header(default=None)):
-    _check_admin(x_admin_token)
+def admin_collect_status(x_admin_token: str | None = Header(default=None), token: str | None = Query(default=None)):
+    """브라우저에서는 ?token=<ADMIN_TOKEN> 으로 열 수 있다."""
+    _check_admin(x_admin_token or token)
     return collect.status()
+
+
+@router.get("/admin/collect/run")
+def admin_collect_run_get(token: str | None = Query(default=None), since: date | None = None, only: str | None = None):
+    """브라우저 주소창에서 수집을 시작하는 편의 엔드포인트: /api/admin/collect/run?token=…&since=2015-01-01&only=krx_prices"""
+    _check_admin(token)
+    names = [n.strip() for n in only.split(",")] if only else None
+    if not collect.start_background(since, names):
+        raise HTTPException(409, "이미 수집이 진행 중입니다")
+    return {"started": True, "since": since.isoformat() if since else None, "only": names,
+            "status_url": f"/api/admin/collect/status?token={token}"}
