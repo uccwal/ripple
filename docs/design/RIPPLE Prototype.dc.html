@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>*{box-sizing:border-box}body{margin:0;background:#F5F6F8;color:#141A24;-webkit-font-smoothing:antialiased}a{color:#16264A}a:hover{color:#2A3F6E}input,select,textarea,button{font-family:inherit}@keyframes rpspin{to{transform:rotate(360deg)}}</style>
+</helmet>
+<div style="min-height:100vh;background:#F5F6F8;font-family:'Pretendard Variable',Pretendard,-apple-system,'Apple SD Gothic Neo',sans-serif;font-size:14px;line-height:1.5;color:#141A24;letter-spacing:-0.005em;min-width:1280px;word-break:keep-all">
+
+<div style="height:56px;background:#FFFFFF;border-bottom:1px solid #E3E6EB;display:flex;align-items:center;padding:0 24px;gap:36px;position:sticky;top:0;z-index:30">
+  <div onClick="{{ goS1 }}" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+    <svg width="24" height="24"><circle cx="12" cy="12" r="3.2" fill="#16264A"></circle><circle cx="12" cy="12" r="7" fill="none" stroke="#16264A" stroke-width="1.6"></circle><circle cx="12" cy="12" r="10.6" fill="none" stroke="#8C9AB8" stroke-width="1.2"></circle></svg>
+    <span style="font-size:16px;font-weight:800;letter-spacing:0.12em;color:#16264A">RIPPLE</span>
+  </div>
+  <div style="display:flex;gap:4px;height:56px">
+    <sc-for list="{{ nav }}" as="n" hint-placeholder-count="3">
+      <div onClick="{{ n.onClick }}" style="display:flex;align-items:center;padding:0 14px;white-space:nowrap;font-size:14px;font-weight:600;cursor:pointer;color:{{ n.color }};border-bottom:2px solid {{ n.bd }}">{{ n.l }}</div>
+    </sc-for>
+  </div>
+  <div style="flex:1"></div>
+  <sc-if value="{{ running }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ goS3 }}" style="display:flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:15px;background:#EEF1F7;color:#16264A;font-size:12px;font-weight:600;cursor:pointer">{{ spinner }}<span>분석 실행 중 · {{ elapsedTxt }}</span></div>
+  </sc-if>
+  <div onClick="{{ goSys }}" style="font-size:13px;color:{{ sysColor }};cursor:pointer;font-weight:600">컴포넌트·토큰</div>
+  <button onClick="{{ goS2 }}" style="white-space:nowrap;flex:none;height:36px;padding:0 16px;border:none;border-radius:6px;background:#16264A;color:#FFFFFF;font-size:13px;font-weight:600;cursor:pointer" style-hover="background:#2A3F6E">＋ 새 분석</button>
+</div>
+
+<sc-if value="{{ isS1 }}" hint-placeholder-val="{{ true }}">
+<div style="max-width:1440px;margin:0 auto;padding:28px 32px 48px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:24px">
+  <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px">
+      <div>
+        <div style="font-size:22px;font-weight:700;letter-spacing:-0.02em">정책 이벤트</div>
+        <div style="font-size:13px;color:#7A8394">최근 수집된 정책 발표를 보고 분석을 시작합니다 · 마지막 수집 2026-10-14 09:00</div>
+      </div>
+    </div>
+    <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:12px;color:#7A8394;margin-right:4px">국가</span>
+        <sc-for list="{{ countryChips }}" as="c" hint-placeholder-count="5">
+          <div onClick="{{ c.onClick }}" style="height:28px;padding:0 12px;display:flex;align-items:center;border-radius:14px;white-space:nowrap;flex:none;font-size:13px;font-weight:600;cursor:pointer;background:{{ c.bg }};color:{{ c.color }};border:1px solid {{ c.bd }}">{{ c.l }}</div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:12px;color:#7A8394;margin-right:4px">유형</span>
+        <sc-for list="{{ typeChips }}" as="c" hint-placeholder-count="4">
+          <div onClick="{{ c.onClick }}" style="height:28px;padding:0 12px;display:flex;align-items:center;border-radius:14px;white-space:nowrap;flex:none;font-size:13px;font-weight:600;cursor:pointer;background:{{ c.bg }};color:{{ c.color }};border:1px solid {{ c.bd }}">{{ c.l }}</div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+        <span style="font-size:12px;color:#7A8394">기간</span>
+        <select style="height:30px;border:1px solid #CDD2DA;border-radius:6px;padding:0 8px;font-size:13px;background:#FFFFFF;color:#141A24"><option>최근 30일</option><option>최근 7일</option><option>최근 90일</option></select>
+      </div>
+    </div>
+    <sc-if value="{{ noEvents }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#FFFFFF;border:1px dashed #CDD2DA;border-radius:8px;padding:48px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+        <div style="font-size:15px;font-weight:600">조건에 맞는 정책 이벤트가 없습니다</div>
+        <div style="font-size:13px;color:#7A8394">필터를 바꾸거나 시나리오를 직접 입력해 분석할 수 있습니다.</div>
+        <button onClick="{{ goS2Scen }}" style="white-space:nowrap;flex:none;height:36px;padding:0 16px;border:none;border-radius:6px;background:#16264A;color:#FFFFFF;font-size:13px;font-weight:600;cursor:pointer">새 분석</button>
+      </div>
+    </sc-if>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+      <sc-for list="{{ events }}" as="e" hint-placeholder-count="6">
+        <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="width:30px;height:20px;border-radius:3px;background:#EEF1F7;color:#16264A;font:700 11px ui-monospace,Menlo,monospace;display:flex;align-items:center;justify-content:center">{{ e.cc }}</span>
+            <span style="font-size:13px;color:#4A5363">{{ e.country }}</span>
+            <span style="height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;border:1px solid #CDD2DA;font-size:12px;font-weight:600;color:#4A5363;display:flex;align-items:center">{{ e.type }}</span>
+            <span style="margin-left:auto;font-size:12px;color:#7A8394;font-variant-numeric:tabular-nums">{{ e.date }}</span>
+          </div>
+          <div>
+            <div style="font-size:16px;font-weight:700;letter-spacing:-0.01em">{{ e.title }}</div>
+            <div style="font-size:13px;color:#4A5363;margin-top:2px">{{ e.summary }}</div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;background:#F5F6F8;border-radius:6px;padding:10px 14px">
+            <span style="font-size:12px;color:#7A8394">핵심 수치</span>
+            <span style="font-size:20px;font-weight:700;color:#16264A;font-variant-numeric:tabular-nums">{{ e.key }}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;color:#7A8394">출처 {{ e.src }}</span>
+            <sc-if value="{{ e.hasLast }}"><span onClick="{{ e.openLast }}" style="font-size:12px;color:#4A5363;cursor:pointer">· 최근 분석 <span style="font-weight:700;color:{{ e.lastColor }};text-decoration:underline dotted;text-underline-offset:3px;font-variant-numeric:tabular-nums">{{ e.lastTxt }}</span></span></sc-if>
+            <button onClick="{{ e.analyze }}" style="white-space:nowrap;flex:none;margin-left:auto;height:32px;padding:0 14px;border:1px solid #16264A;border-radius:6px;background:#FFFFFF;color:#16264A;font-size:13px;font-weight:600;cursor:pointer" style-hover="background:#EEF1F7">분석하기</button>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:18px 20px">
+      <div style="font-size:13px;font-weight:700;color:#4A5363">오늘 수집된 이벤트</div>
+      <div style="display:flex;align-items:baseline;gap:6px;margin:6px 0 12px"><span style="font-size:32px;font-weight:700;font-variant-numeric:tabular-nums">4</span><span style="font-size:13px;color:#7A8394">건 · 전일 대비 +1</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#4A5363">
+        <div style="display:flex;justify-content:space-between"><span>Federal Register</span><span style="font-variant-numeric:tabular-nums">2</span></div>
+        <div style="display:flex;justify-content:space-between"><span>대한민국 정책브리핑</span><span style="font-variant-numeric:tabular-nums">1</span></div>
+        <div style="display:flex;justify-content:space-between"><span>EUR-Lex</span><span style="font-variant-numeric:tabular-nums">1</span></div>
+      </div>
+    </div>
+    <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:18px 20px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:13px;font-weight:700;color:#4A5363">최근 분석</span><span onClick="{{ goS6 }}" style="font-size:12px;color:#16264A;cursor:pointer">전체 보기</span></div>
+      <div style="display:flex;flex-direction:column;margin-top:8px">
+        <sc-for list="{{ recentRuns }}" as="r" hint-placeholder-count="3">
+          <div onClick="{{ r.open }}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #EEF0F3;cursor:pointer">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sum }}</div>
+              <div style="font-size:12px;color:#7A8394">{{ r.at }} · {{ r.entry }}</div>
+            </div>
+            <span style="font-size:15px;font-weight:700;color:{{ r.color }};font-variant-numeric:tabular-nums;text-decoration:underline dotted;text-underline-offset:3px">{{ r.pnlTxt }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isS2 }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:920px;margin:0 auto;padding:32px 32px 64px;display:flex;flex-direction:column;gap:20px">
+  <div>
+    <div style="font-size:22px;font-weight:700;letter-spacing:-0.02em">새 분석</div>
+    <div style="font-size:13px;color:#7A8394">분석 입구와 대상 포트폴리오를 정합니다.</div>
+  </div>
+  <div style="font-size:13px;font-weight:700;color:#4A5363">1. 분석 입구</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div onClick="{{ setEntryEvent }}" style="cursor:pointer;background:{{ entryEv.bg }};border:{{ entryEv.bd }};border-radius:8px;padding:20px;display:flex;gap:12px">
+      <span style="width:18px;height:18px;border-radius:50%;border:{{ entryEv.radio }};flex:none;margin-top:2px"></span>
+      <div><div style="font-size:16px;font-weight:700">정책 이벤트로 시작</div><div style="font-size:13px;color:#4A5363;margin-top:4px">수집된 정책 발표를 구조화하고 파급 경로부터 추론합니다. 7단계.</div></div>
+    </div>
+    <div onClick="{{ setEntryScen }}" style="cursor:pointer;background:{{ entrySc.bg }};border:{{ entrySc.bd }};border-radius:8px;padding:20px;display:flex;gap:12px">
+      <span style="width:18px;height:18px;border-radius:50%;border:{{ entrySc.radio }};flex:none;margin-top:2px"></span>
+      <div><div style="font-size:16px;font-weight:700">시나리오 직접 입력</div><div style="font-size:13px;color:#4A5363;margin-top:4px">자연어로 충격을 입력하면 변수와 충격값으로 변환합니다. 5단계.</div></div>
+    </div>
+  </div>
+  <sc-if value="{{ isEntryEvent }}" hint-placeholder-val="{{ true }}">
+    <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:12px;color:#7A8394">선택된 이벤트</span>
+        <select value="{{ ev }}" onChange="{{ onEv }}" style="margin-left:auto;height:32px;border:1px solid #CDD2DA;border-radius:6px;padding:0 8px;font-size:13px;background:#FFFFFF;min-width:320px">
+          <sc-for list="{{ allEvents }}" as="o"><option value="{{ o.id }}">{{ o.label }}</option></sc-for>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;background:#F5F6F8;border-radius:6px;padding:14px 16px">
+        <span style="width:30px;height:20px;border-radius:3px;background:#FFFFFF;color:#16264A;font:700 11px ui-monospace,Menlo,monospace;display:flex;align-items:center;justify-content:center">{{ selEv.cc }}</span>
+        <div style="flex:1"><div style="font-size:15px;font-weight:700">{{ selEv.title }}</div><div style="font-size:12px;color:#7A8394">{{ selEv.country }} · {{ selEv.type }} · {{ selEv.date }} · {{ selEv.src }}</div></div>
+        <span style="font-size:18px;font-weight:700;color:#16264A;font-variant-numeric:tabular-nums">{{ selEv.key }}</span>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isEntryScen }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+      <textarea value="{{ scenText }}" onChange="{{ onScen }}" placeholder="예: 유가 30% 급등과 원화 10% 약세가 동시에 발생" style="width:100%;min-height:96px;border:1px solid #CDD2DA;border-radius:6px;padding:12px;font-size:14px;resize:vertical;color:#141A24"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <sc-for list="{{ exampleChips }}" as="c" hint-placeholder-count="3">
+          <div onClick="{{ c.onClick }}" style="height:28px;padding:0 12px;display:flex;align-items:center;border-radius:14px;white-space:nowrap;flex:none;font-size:13px;background:#F5F6F8;border:1px solid #E3E6EB;cursor:pointer;color:#4A5363" style-hover="border-color:#16264A;color:#16264A">{{ c.l }}</div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+  <div style="font-size:13px;font-weight:700;color:#4A5363;margin-top:8px">2. 대상과 기간</div>
+  <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:18px 20px;display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:12px;color:#7A8394">포트폴리오</span>
+      <div style="display:flex;gap:10px;align-items:center">
+        <select value="{{ pfSel }}" onChange="{{ onPf }}" style="flex:1;height:38px;border:1px solid #CDD2DA;border-radius:6px;padding:0 10px;font-size:14px;background:#FFFFFF">
+          <option value="pa">가상 모델 포트폴리오 A (멀티에셋)</option>
+          <option value="pb">가상 모델 포트폴리오 B (채권 중심)</option>
+        </select>
+        <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#EEF1F7;color:#16264A;border:1px dashed #6F84B5;font-size:12px;font-weight:600;white-space:nowrap">가상 포트폴리오</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:12px;color:#7A8394">분석 기간</span>
+      <div style="display:flex;align-items:center;gap:8px"><input value="{{ horizon }}" onChange="{{ onHorizon }}" style="width:90px;height:38px;border:1px solid #CDD2DA;border-radius:6px;padding:0 10px;font-size:14px;text-align:right;font-variant-numeric:tabular-nums"><span style="font-size:13px;color:#4A5363">영업일</span></div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;margin-top:8px">
+    <div style="font-size:12px;color:#7A8394">{{ pipelineTxt }}</div>
+    <button onClick="{{ startFromS2 }}" style="white-space:nowrap;flex:none;margin-left:auto;height:44px;padding:0 28px;border:none;border-radius:6px;background:#16264A;color:#FFFFFF;font-size:15px;font-weight:700;cursor:pointer" style-hover="background:#2A3F6E">분석 시작</button>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isS3 }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;min-height:calc(100vh - 56px)">
+  <div style="width:300px;flex:none;background:#FFFFFF;border-right:1px solid #E3E6EB;padding:18px 16px;display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;align-items:baseline;justify-content:space-between">
+      <span style="font-size:14px;font-weight:700">실행 과정</span>
+      <span style="font-size:12px;color:#7A8394;font-variant-numeric:tabular-nums">{{ elapsedTxt }}</span>
+    </div>
+    <div style="font:500 11px ui-monospace,Menlo,monospace;color:#7A8394">{{ runId }}</div>
+    <div ref="{{ tlRef }}" style="position:relative;display:flex;flex-direction:column">
+      <div style="position:absolute;left:11px;top:22px;bottom:22px;width:2px;background:#E3E6EB"></div>
+      <sc-for list="{{ steps }}" as="st" hint-placeholder-count="7">
+        <div data-step="{{ st.idx }}" style="position:relative;padding:10px 40px 10px 0;display:flex;gap:12px">
+          <div style="width:24px;height:24px;flex:none;border-radius:50%;background:{{ st.dotBg }};border:1.5px solid {{ st.dotBd }};color:{{ st.dotColor }};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;position:relative;z-index:1">
+            <sc-if value="{{ st.isRun }}">{{ spinner }}</sc-if>
+            <sc-if value="{{ st.glyphOn }}">{{ st.glyph }}</sc-if>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div onClick="{{ st.toggle }}" style="cursor:pointer;display:flex;align-items:baseline;gap:6px">
+              <span style="font-size:13px;font-weight:700;color:{{ st.nameColor }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">{{ st.n }}. {{ st.name }}</span>
+              <span style="margin-left:auto;font-size:12px;color:#7A8394;font-variant-numeric:tabular-nums;white-space:nowrap">{{ st.time }}</span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;font-size:12px;color:#7A8394">
+              <span>{{ st.desc }}</span><span>·</span><span style="color:{{ st.stColor }};font-weight:600">{{ st.stLabel }}</span>
+              <sc-if value="{{ st.hasAtt }}"><span style="height:18px;padding:0 6px;white-space:nowrap;flex:none;border-radius:3px;background:#FFF4D1;color:#8A5E00;font-size:11px;font-weight:600;display:flex;align-items:center">{{ st.attTxt }}</span></sc-if>
+            </div>
+            <sc-if value="{{ st.hasNote }}"><div style="margin-top:6px;font-size:12px;line-height:1.45;padding:6px 8px;border-radius:4px;background:{{ st.noteBg }};color:{{ st.noteColor }}">{{ st.note }}</div></sc-if>
+            <sc-if value="{{ st.open }}">
+              <div style="margin-top:8px;padding:10px;border-radius:6px;background:#F5F6F8;display:grid;grid-template-columns:44px minmax(0,1fr);gap:4px 8px;font-size:12px">
+                <span style="color:#7A8394">입력</span><span>{{ st.inp }}</span>
+                <span style="color:#7A8394">출력</span><span>{{ st.out }}</span>
+                <span style="color:#7A8394">모델</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:11px">{{ st.model }}</span>
+                <span style="color:#7A8394">토큰</span><span style="font-variant-numeric:tabular-nums">{{ st.tok }}</span>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-for>
+      <sc-if value="{{ showLoop }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;right:8px;top:{{ loopTop }}px;height:{{ loopH }}px;width:18px;border:1.5px solid #D9A92E;border-left:none;border-radius:0 8px 8px 0;pointer-events:none">
+          <span style="position:absolute;left:-7px;top:-9px;color:#D9A92E;font-size:11px;line-height:1">◀</span>
+          <span style="position:absolute;right:-9px;top:50%;transform:translateY(-50%);writing-mode:vertical-rl;background:#FFFFFF;color:#8A5E00;font-size:11px;font-weight:700;padding:4px 0">반려</span>
+        </div>
+      </sc-if>
+    </div>
+    <div style="margin-top:auto;border-top:1px solid #EEF0F3;padding-top:12px;font-size:12px;color:#7A8394;display:flex;flex-direction:column;gap:2px">
+      <span>단계를 누르면 입력·출력 요약을 펼칩니다.</span>
+      <span>모델 claude-haiku-5-5 · 계산은 engine 모듈에서만 수행</span>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;padding:20px 24px 48px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#EEF1F7;color:#16264A;font-size:12px;font-weight:600;display:flex;align-items:center">{{ entryLabel }}</span>
+      <span style="font-size:18px;font-weight:700;letter-spacing:-0.01em">{{ runTitle }}</span>
+      <span style="font-size:13px;color:#7A8394">가상 모델 포트폴리오 A · 20영업일</span>
+    </div>
+
+    <sc-if value="{{ isRunning }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:16px 20px;display:flex;align-items:center;gap:28px">
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="width:110px;height:10px;border-radius:3px;background:#EEF0F3"></div><div style="width:150px;height:26px;border-radius:4px;background:#E7EAEE"></div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="width:80px;height:10px;border-radius:3px;background:#EEF0F3"></div><div style="width:140px;height:18px;border-radius:4px;background:#E7EAEE"></div></div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:10px;color:#16264A;font-size:13px;font-weight:600">{{ spinner }}<span>{{ currentStepTxt }}</span></div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:20px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;gap:20px"><div style="width:64px;height:12px;border-radius:3px;background:#E7EAEE"></div><div style="width:52px;height:12px;border-radius:3px;background:#EEF0F3"></div><div style="width:40px;height:12px;border-radius:3px;background:#EEF0F3"></div><div style="width:48px;height:12px;border-radius:3px;background:#EEF0F3"></div></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:40px;padding:20px 0">
+          <div style="display:flex;flex-direction:column;justify-content:center"><div style="height:56px;border-radius:6px;background:#F0F2F5"></div></div>
+          <div style="display:flex;flex-direction:column;gap:40px"><div style="height:56px;border-radius:6px;background:#F0F2F5"></div><div style="height:56px;border-radius:6px;background:#F0F2F5"></div></div>
+          <div style="display:flex;flex-direction:column;gap:24px"><div style="height:56px;border-radius:6px;background:#F0F2F5"></div><div style="height:56px;border-radius:6px;background:#F0F2F5"></div><div style="height:56px;border-radius:6px;background:#F0F2F5"></div></div>
+          <div style="display:flex;flex-direction:column;gap:24px"><div style="height:56px;border-radius:6px;background:#F0F2F5"></div><div style="height:56px;border-radius:6px;background:#F0F2F5"></div><div style="height:56px;border-radius:6px;background:#F0F2F5"></div></div>
+        </div>
+        <div style="font-size:12px;color:#7A8394">각 단계가 끝나면 결과가 이 영역에 채워집니다. 수치는 Risk Engine 계산 후 Validator 검증을 통과해야 표시됩니다.</div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isFailed }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#FFFFFF;border:1px solid #F3C3BD;border-radius:8px;padding:32px;display:flex;gap:20px;align-items:flex-start">
+        <span style="width:36px;height:36px;border-radius:50%;background:#FDECEA;color:#B42318;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex:none">!</span>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:16px;font-weight:700">분석을 완료하지 못했습니다</div>
+          <div style="font-size:13px;color:#4A5363;max-width:640px">Impact Mapper 단계에서 Claude API 응답 시간 초과가 반복되어 재시도 한도(2회)를 넘겼습니다. 완료된 Event Analyst 결과는 보존되어 있으며, 다시 시도하면 Impact Mapper부터 이어서 실행합니다.</div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button onClick="{{ retryRun }}" style="white-space:nowrap;flex:none;height:36px;padding:0 16px;border:none;border-radius:6px;background:#16264A;color:#FFFFFF;font-size:13px;font-weight:600;cursor:pointer">다시 시도</button>
+            <button onClick="{{ goS6 }}" style="white-space:nowrap;flex:none;height:36px;padding:0 14px;border:1px solid #CDD2DA;border-radius:6px;background:#FFFFFF;font-size:13px;font-weight:600;cursor:pointer">실행 이력으로</button>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:14px 20px;display:flex;align-items:center;gap:28px">
+        <div>
+          <div style="font-size:12px;color:#7A8394">포트폴리오 예상 손익</div>
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span onClick="{{ oc.pnl }}" style="font-size:30px;font-weight:700;letter-spacing:-0.02em;color:{{ totalColor }};cursor:pointer;text-decoration:underline dotted;text-decoration-thickness:1px;text-underline-offset:5px;font-variant-numeric:tabular-nums">{{ totalTxt }}</span>
+            <span onClick="{{ oc.amt }}" style="font-size:14px;font-weight:600;color:{{ totalColor }};white-space:nowrap;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;font-variant-numeric:tabular-nums">({{ amountTxt }})</span>
+          </div>
+        </div>
+        <div style="width:1px;align-self:stretch;background:#EEF0F3"></div>
+        <div>
+          <div style="font-size:12px;color:#7A8394">추정 범위 (95%)</div>
+          <span onClick="{{ oc.range }}" style="font-size:16px;font-weight:600;cursor:pointer;text-decoration:underline dotted;text-underline-offset:4px;font-variant-numeric:tabular-nums;color:#141A24">{{ rangeTxt }}</span>
+        </div>
+        <div style="width:1px;align-self:stretch;background:#EEF0F3"></div>
+        <div>
+          <div style="font-size:12px;color:#7A8394;margin-bottom:4px">검증 상태</div>
+          <div style="display:flex;gap:6px">
+            <span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#E5F4EC;color:#1B7F4B;font-size:12px;font-weight:600">✓ 검증 통과</span>
+            <span title="파급 경로 '대만 반도체 공급망 재편' 단계의 근거가 1건이며 정량 데이터가 없습니다. 확신도 낮음 단계로 분류되어 시나리오에서 제외되었습니다." style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#FFF4D1;color:#8A5E00;font-size:12px;font-weight:600;cursor:help">⚠ 근거 불충분 1</span>
+            <sc-if value="{{ overHist }}"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#FFF4D1;color:#8A5E00;font-size:12px;font-weight:600">과거 최대 변동폭 초과</span></sc-if>
+          </div>
+        </div>
+        <div style="flex:1"></div>
+        <button onClick="{{ downloadReport }}" style="white-space:nowrap;flex:none;height:36px;padding:0 14px;border:1px solid #CDD2DA;border-radius:6px;background:#FFFFFF;color:#141A24;font-size:13px;font-weight:600;cursor:pointer" style-hover="background:#F5F6F8">보고서 다운로드</button>
+        <button onClick="{{ rerun }}" style="white-space:nowrap;flex:none;height:36px;padding:0 14px;border:1px solid #16264A;border-radius:6px;background:#FFFFFF;color:#16264A;font-size:13px;font-weight:600;cursor:pointer" style-hover="background:#EEF1F7">↻ 다시 실행</button>
+      </div>
+
+      <div style="display:flex;gap:4px;border-bottom:1px solid #E3E6EB">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+          <div onClick="{{ t.onClick }}" style="padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;color:{{ t.color }};border-bottom:2px solid {{ t.bd }};margin-bottom:-1px;display:flex;align-items:center;gap:6px">{{ t.l }}<sc-if value="{{ t.dot }}"><span style="width:6px;height:6px;border-radius:50%;background:#D9A92E"></span></sc-if></div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ tabPath }}" hint-placeholder-val="{{ true }}">
+        <sc-if value="{{ isScenEntry }}">
+          <div style="background:#FFFFFF;border:1px dashed #CDD2DA;border-radius:8px;padding:48px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">
+            <div style="font-size:15px;font-weight:600">직접 입력한 시나리오에는 파급 경로가 없습니다</div>
+            <div style="font-size:13px;color:#7A8394">시나리오 입력 시 Event Analyst와 Impact Mapper 단계를 건너뜁니다. 변환된 충격값은 시나리오 탭에서 확인할 수 있습니다.</div>
+            <button onClick="{{ tabTo.scen }}" style="white-space:nowrap;flex:none;margin-top:6px;height:36px;padding:0 16px;border:none;border-radius:6px;background:#16264A;color:#FFFFFF;font-size:13px;font-weight:600;cursor:pointer">시나리오 보기</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isEventEntry }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start">
+          <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:16px 20px 18px">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);font-size:12px;font-weight:600;color:#7A8394;margin-bottom:10px">
+              <span>정책</span><span style="padding-left:8%">산업</span><span style="padding-left:16%">거시 변수</span><span style="padding-left:24%">자산군</span>
+            </div>
+            <div style="position:relative;width:100%;aspect-ratio:1000/360">
+              <svg viewBox="0 0 1000 360" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible">
+                <path d="M180,152 C230,152 230,52 280,52" style="fill:none;stroke:#16264A;stroke-width:2.5"></path>
+                <path d="M180,152 C230,152 230,142 280,142" style="fill:none;stroke:#A3AAB6;stroke-width:1.5;stroke-dasharray:5 4"></path>
+                <path d="M180,152 C260,152 470,312 550,312" style="fill:none;stroke:#8C9AB8;stroke-width:2"></path>
+                <path d="M450,52 C500,52 500,32 550,32" style="fill:none;stroke:#8C9AB8;stroke-width:2"></path>
+                <path d="M450,52 C500,52 500,142 550,142" style="fill:none;stroke:#16264A;stroke-width:2.5"></path>
+                <path d="M450,142 L550,142" style="fill:none;stroke:#A3AAB6;stroke-width:1.5;stroke-dasharray:5 4"></path>
+                <path d="M720,32 C770,32 770,62 820,62" style="fill:none;stroke:#8C9AB8;stroke-width:2"></path>
+                <path d="M720,142 C770,142 770,62 820,62" style="fill:none;stroke:#16264A;stroke-width:2.5"></path>
+                <path d="M720,142 C770,142 770,182 820,182" style="fill:none;stroke:#8C9AB8;stroke-width:2"></path>
+                <path d="M720,312 L820,312" style="fill:none;stroke:#8C9AB8;stroke-width:2"></path>
+              </svg>
+              <div style="position:absolute;left:23%;top:28.33%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:#FFFFFF;border:1.5px solid #16264A;color:#16264A;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">−</div>
+              <div style="position:absolute;left:23%;top:40.83%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:#FFFFFF;border:1.5px dashed #A3AAB6;color:#7A8394;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">+</div>
+              <div style="position:absolute;left:36.5%;top:64.44%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:#FFFFFF;border:1.5px solid #8C9AB8;color:#4A5363;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">−</div>
+              <div style="position:absolute;left:50%;top:11.67%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:#FFFFFF;border:1.5px solid #8C9AB8;color:#4A5363;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">+</div>
+              <div style="position:absolute;left:50%;top:26.94%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:#FFFFFF;border:1.5px solid #16264A;color:#16264A;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">−</div>
+              <div style="position:absolute;left:50%;top:39.44%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:#FFFFFF;border:1.5px dashed #A3AAB6;color:#7A8394;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">−</div>
+              <div style="position:absolute;left:77%;top:13.06%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:#FFFFFF;border:1.5px solid #8C9AB8;color:#4A5363;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">−</div>
+              <div style="position:absolute;left:77%;top:28.33%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:#FFFFFF;border:1.5px solid #16264A;color:#16264A;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">−</div>
+              <div style="position:absolute;left:77%;top:45%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:#FFFFFF;border:1.5px solid #8C9AB8;color:#4A5363;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">−</div>
+              <div style="position:absolute;left:77%;top:86.67%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;background:#FFFFFF;border:1.5px solid #8C9AB8;color:#4A5363;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center">+</div>
+
+              <div onClick="{{ selN.n1 }}" style="position:absolute;left:1%;top:33.33%;width:17%;height:17.78%;background:#FFFFFF;border:{{ nb.n1 }};border-radius:6px;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;justify-content:center;box-shadow:{{ nsh.n1 }}"><div style="font-size:12.5px;font-weight:700;line-height:1.25">미국 반도체 관세 25%</div><div style="font-size:11px;color:#7A8394">정책 · 2026-10-01</div></div>
+              <div onClick="{{ selN.n2 }}" style="position:absolute;left:28%;top:5.56%;width:17%;height:17.78%;background:#FFFFFF;border:{{ nb.n2 }};border-radius:6px;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;justify-content:center;box-shadow:{{ nsh.n2 }}"><div style="font-size:12.5px;font-weight:700;line-height:1.25">한국 반도체 수출 감소</div><div style="font-size:11px;color:#7A8394">확신도 높음 · 근거 3</div></div>
+              <div onClick="{{ selN.n3 }}" style="position:absolute;left:28%;top:30.56%;width:17%;height:17.78%;background:#F7F8FA;border:{{ nb.n3 }};border-radius:6px;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;justify-content:center;box-shadow:{{ nsh.n3 }}"><div style="font-size:12.5px;font-weight:700;line-height:1.25;color:#4A5363">대만 반도체 공급망 재편</div><div style="font-size:11px;color:#8A5E00;font-weight:600">⚠ 근거 불충분</div></div>
+              <div onClick="{{ selN.n4 }}" style="position:absolute;left:55%;top:0%;width:17%;height:17.78%;background:#FFFFFF;border:{{ nb.n4 }};border-radius:6px;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;justify-content:center;box-shadow:{{ nsh.n4 }}"><div style="font-size:12.5px;font-weight:700;line-height:1.25">원/달러 환율 상승</div><div style="font-size:11px;color:#7A8394">확신도 중간 · 근거 2</div></div>
+              <div onClick="{{ selN.n5 }}" style="position:absolute;left:55%;top:30.56%;width:17%;height:17.78%;background:#FFFFFF;border:{{ nb.n5 }};border-radius:6px;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;justify-content:center;box-shadow:{{ nsh.n5 }}"><div style="font-size:12.5px;font-weight:700;line-height:1.25">KOSPI IT 업종 하락</div><div style="font-size:11px;color:#7A8394">확신도 높음 · 근거 2</div></div>
+              <div onClick="{{ selN.n6 }}" style="position:absolute;left:55%;top:77.78%;width:17%;height:17.78%;background:#FFFFFF;border:{{ nb.n6 }};border-radius:6px;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;justify-content:center;box-shadow:{{ nsh.n6 }}"><div style="font-size:12.5px;font-weight:700;line-height:1.25">미 국채 금리 하락</div><div style="font-size:11px;color:#7A8394">확신도 중간 · 근거 1</div></div>
+              <div onClick="{{ selN.n7 }}" style="position:absolute;left:82%;top:8.33%;width:17%;height:17.78%;background:#FFFFFF;border:{{ nb.n7 }};border-radius:6px;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;justify-content:center;box-shadow:{{ nsh.n7 }}"><div style="font-size:12.5px;font-weight:700;line-height:1.25">국내 주식</div><div style="font-size:11px;color:#7A8394">비중 24%</div></div>
+              <div onClick="{{ selN.n8 }}" style="position:absolute;left:82%;top:41.67%;width:17%;height:17.78%;background:#FFFFFF;border:{{ nb.n8 }};border-radius:6px;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;justify-content:center;box-shadow:{{ nsh.n8 }}"><div style="font-size:12.5px;font-weight:700;line-height:1.25">해외 주식</div><div style="font-size:11px;color:#7A8394">비중 39%</div></div>
+              <div onClick="{{ selN.n9 }}" style="position:absolute;left:82%;top:77.78%;width:17%;height:17.78%;background:#FFFFFF;border:{{ nb.n9 }};border-radius:6px;padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;justify-content:center;box-shadow:{{ nsh.n9 }}"><div style="font-size:12.5px;font-weight:700;line-height:1.25">채권</div><div style="font-size:11px;color:#7A8394">비중 32%</div></div>
+            </div>
+            <div style="display:flex;gap:20px;align-items:center;margin-top:16px;padding-top:12px;border-top:1px solid #EEF0F3;font-size:12px;color:#4A5363;flex-wrap:wrap">
+              <span style="display:flex;align-items:center;gap:6px"><span style="width:28px;height:0;border-top:2.5px solid #16264A"></span>확신도 높음</span>
+              <span style="display:flex;align-items:center;gap:6px"><span style="width:28px;height:0;border-top:2px solid #8C9AB8"></span>확신도 중간</span>
+              <span style="display:flex;align-items:center;gap:6px"><span style="width:28px;height:0;border-top:1.5px dashed #A3AAB6"></span>확신도 낮음 (시나리오 제외)</span>
+              <span style="margin-left:auto;color:#7A8394">＋/− 원인 변수 대비 영향 방향 · 노드를 누르면 근거를 봅니다</span>
+            </div>
+          </div>
+          <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:12px;color:#7A8394">{{ selNode.layer }}</div>
+            <div style="font-size:16px;font-weight:700;margin-top:-6px">{{ selNode.t }}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;font-size:12px;font-weight:600;background:{{ selNode.cbg }};color:{{ selNode.cfg }};border:1px {{ selNode.cbs }} {{ selNode.cbd }}">{{ selNode.confTxt }}</span>
+              <sc-if value="{{ selNode.isLow }}"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#FFF4D1;color:#8A5E00;font-size:12px;font-weight:600">⚠ 근거 불충분</span></sc-if>
+            </div>
+            <div style="font-size:12px;color:#4A5363">{{ selNode.dir }}</div>
+            <div style="font-size:12px;font-weight:700;color:#4A5363;margin-top:4px">근거 {{ selNode.evCount }}건</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ selNode.ev }}" as="v" hint-placeholder-count="2">
+                <div style="padding:10px 12px;border:1px solid #EEF0F3;border-radius:6px;background:#FAFBFC">
+                  <div style="font-size:13px;line-height:1.45">{{ v.t }}</div>
+                  <div style="font-size:11px;color:#7A8394;margin-top:4px">{{ v.src }} · 수집 {{ v.d }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{ tabScen }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;overflow:hidden">
+          <div style="display:grid;grid-template-columns:150px 120px 60px minmax(0,1fr) 260px;gap:16px;padding:10px 20px;background:#F8F9FA;border-bottom:1px solid #E3E6EB;font-size:12px;font-weight:600;color:#7A8394">
+            <span>변수</span><span style="text-align:right">충격값</span><span>단위</span><span>근거</span><span>과거 최대 변동폭 대비 위치</span>
+          </div>
+          <sc-for list="{{ shockRows }}" as="r" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:150px 120px 60px minmax(0,1fr) 260px;gap:16px;padding:10px 20px;border-bottom:1px solid #EEF0F3;align-items:center;background:{{ r.rowBg }}">
+              <div><div onClick="{{ r.open }}" style="font-size:14px;font-weight:600;cursor:pointer">{{ r.name }}</div><div style="font:11px ui-monospace,Menlo,monospace;color:#7A8394">{{ r.id }}</div></div>
+              <input value="{{ r.val }}" onChange="{{ r.onChange }}" style="width:100%;height:34px;border:1px solid {{ r.inputBd }};border-radius:6px;padding:0 10px;text-align:right;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;color:{{ r.color }};background:#FFFFFF">
+              <span style="font-size:13px;color:#4A5363">{{ r.unit }}</span>
+              <span onClick="{{ r.open }}" style="font-size:13px;color:#4A5363;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;text-decoration-color:#CDD2DA">{{ r.basis }}</span>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="position:relative;flex:1;height:8px;border-radius:4px;background:#EEF0F3">
+                  <div style="position:absolute;left:0;top:0;bottom:0;width:{{ r.posW }};border-radius:4px;background:{{ r.barColor }}"></div>
+                  <div style="position:absolute;right:0;top:-3px;width:2px;height:14px;background:#7A8394"></div>
+                </div>
+                <span style="width:86px;font-size:12px;color:{{ r.posColor }};font-variant-numeric:tabular-nums;text-align:right">{{ r.posTxt }}</span>
+              </div>
+            </div>
+          </sc-for>
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 20px">
+            <span style="font-size:12px;color:#7A8394">충격값을 고치면 새 실행이 만들어지고 Regime Finder부터 다시 계산합니다. 막대 끝 눈금 = 과거 20영업일 최대 변동폭.</span>
+            <sc-if value="{{ invalid }}"><span style="font-size:12px;color:#B42318;font-weight:600">숫자 형식을 확인하세요</span></sc-if>
+            <button onClick="{{ resetDraft }}" disabled="{{ notDirty }}" style="white-space:nowrap;flex:none;margin-left:auto;height:36px;padding:0 14px;border:1px solid #CDD2DA;border-radius:6px;background:#FFFFFF;color:#141A24;font-size:13px;font-weight:600;cursor:pointer;opacity:{{ dirtyOpacity }}">되돌리기</button>
+            <button onClick="{{ recalc }}" disabled="{{ cantRecalc }}" style="white-space:nowrap;flex:none;height:36px;padding:0 16px;border:none;border-radius:6px;background:{{ recalcBg }};color:#FFFFFF;font-size:13px;font-weight:600;cursor:pointer">재계산</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ tabResult }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start">
+          <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:16px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px"><span style="font-size:14px;font-weight:700">자산별 손익</span><span style="font-size:12px;color:#7A8394">손실 큰 순 · 자산 수익률 ΔR</span></div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <sc-for list="{{ bars }}" as="b" hint-placeholder-count="8">
+                <div onClick="{{ b.open }}" style="display:grid;grid-template-columns:150px minmax(0,1fr) 64px;gap:10px;align-items:center;cursor:pointer;padding:3px 0;border-radius:4px" style-hover="background:#F5F6F8">
+                  <span style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ b.name }}</span>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;height:16px">
+                    <div style="display:flex;justify-content:flex-end;border-right:1px solid #CDD2DA"><div style="width:{{ b.lw }};background:#1E5BD8;border-radius:2px 0 0 2px"></div></div>
+                    <div style="display:flex"><div style="width:{{ b.rw }};background:#D23F31;border-radius:0 2px 2px 0"></div></div>
+                  </div>
+                  <span style="font-size:13px;font-weight:700;text-align:right;color:{{ b.color }};font-variant-numeric:tabular-nums;text-decoration:underline dotted;text-underline-offset:3px">{{ b.txt }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:14px 16px">
+                <div style="font-size:12px;color:#7A8394">팩터 모델 추정</div>
+                <div onClick="{{ oc.model }}" style="font-size:24px;font-weight:700;color:{{ totalColor }};cursor:pointer;text-decoration:underline dotted;text-underline-offset:4px;text-decoration-thickness:1px;font-variant-numeric:tabular-nums">{{ totalTxt }}</div>
+                <div onClick="{{ oc.range }}" style="font-size:12px;color:#4A5363;font-variant-numeric:tabular-nums;cursor:pointer">범위 {{ rangeTxt }}</div>
+              </div>
+              <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:14px 16px">
+                <div style="font-size:12px;color:#7A8394">과거 유사 국면 추정</div>
+                <div onClick="{{ oc.reg }}" style="font-size:24px;font-weight:700;color:#1E5BD8;cursor:pointer;text-decoration:underline dotted;text-underline-offset:4px;text-decoration-thickness:1px;font-variant-numeric:tabular-nums">−4.9%</div>
+                <div style="font-size:12px;color:#4A5363;font-variant-numeric:tabular-nums">5개 구간 중앙값 · −6.2% ~ −1.9%</div>
+              </div>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;overflow:hidden">
+              <div style="padding:12px 16px;font-size:14px;font-weight:700">손실 기여 상위 5</div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 56px 64px 72px;gap:10px;padding:6px 16px;background:#F8F9FA;font-size:12px;color:#7A8394;font-weight:600"><span>자산</span><span style="text-align:right">비중</span><span style="text-align:right">손익</span><span style="text-align:right">기여도</span></div>
+              <sc-for list="{{ top5 }}" as="t" hint-placeholder-count="5">
+                <div onClick="{{ t.open }}" style="display:grid;grid-template-columns:minmax(0,1fr) 56px 64px 72px;gap:10px;padding:8px 16px;border-top:1px solid #EEF0F3;font-size:13px;cursor:pointer;font-variant-numeric:tabular-nums" style-hover="background:#F5F6F8">
+                  <span>{{ t.name }}</span><span style="text-align:right;color:#4A5363">{{ t.w }}</span><span style="text-align:right;color:{{ t.rc }}">{{ t.r }}</span><span style="text-align:right;font-weight:700;color:{{ t.cc }};text-decoration:underline dotted;text-underline-offset:3px">{{ t.c }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;overflow:hidden">
+          <div style="padding:12px 20px;display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;font-weight:700">과거 유사 국면</span><span style="font-size:12px;color:#7A8394">20영업일 롤링 구간 · 팩터 변화 벡터 코사인 유사도</span></div>
+          <div style="display:grid;grid-template-columns:220px minmax(0,1fr) 220px 120px;gap:16px;padding:6px 20px;background:#F8F9FA;font-size:12px;color:#7A8394;font-weight:600"><span>기간</span><span>당시 국면</span><span>유사도</span><span style="text-align:right">당시 실제 손익</span></div>
+          <sc-for list="{{ regimes }}" as="g" hint-placeholder-count="5">
+            <div style="display:grid;grid-template-columns:220px minmax(0,1fr) 220px 120px;gap:16px;padding:9px 20px;border-top:1px solid #EEF0F3;font-size:13px;align-items:center;font-variant-numeric:tabular-nums">
+              <span>{{ g.p }}</span><span style="color:#4A5363">{{ g.tag }}</span>
+              <div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;border-radius:3px;background:#EEF0F3"><div style="width:{{ g.sw }};height:6px;border-radius:3px;background:#3B5185"></div></div><span style="width:32px">{{ g.s }}</span></div>
+              <span onClick="{{ g.open }}" style="text-align:right;font-weight:700;color:{{ g.color }};cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">{{ g.pnl }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ tabReport }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;justify-content:center">
+          <div style="width:100%;max-width:820px;background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;box-shadow:0 2px 8px rgba(20,26,36,0.05)">
+            <div style="display:flex;align-items:center;gap:8px;padding:12px 20px;border-bottom:1px solid #EEF0F3">
+              <span style="font-size:12px;color:#7A8394">보고서 미리보기 · 인용 9건 · 모든 수치 calc_log 참조</span>
+              <button onClick="{{ downloadReport }}" style="white-space:nowrap;flex:none;margin-left:auto;height:32px;padding:0 12px;border:1px solid #CDD2DA;border-radius:6px;background:#FFFFFF;font-size:12px;font-weight:600;cursor:pointer">Markdown</button>
+              <button onClick="{{ downloadReport }}" style="white-space:nowrap;flex:none;height:32px;padding:0 14px;border:none;border-radius:6px;background:#16264A;color:#FFFFFF;font-size:12px;font-weight:600;cursor:pointer">PDF 다운로드</button>
+            </div>
+            <div style="padding:40px 56px 48px;display:flex;flex-direction:column;gap:28px">
+              <div style="border-bottom:2px solid #16264A;padding-bottom:16px">
+                <div style="font-size:12px;letter-spacing:0.12em;color:#16264A;font-weight:700">RIPPLE 정책 파급 분석 보고서</div>
+                <div style="font-size:22px;font-weight:700;margin-top:6px;letter-spacing:-0.02em">{{ runTitle }}</div>
+                <div style="font-size:12px;color:#7A8394;margin-top:6px">{{ runId }} · 2026-10-14 · 가상 모델 포트폴리오 A · 분석 기간 20영업일 · 검증 통과</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="font-size:15px;font-weight:700">1. 요약</div>
+                <div style="font-size:14px;line-height:1.75;color:#2A3140">미국의 반도체 수입품 관세 부과(관세율 25%)는 한국 반도체 수출 감소와 KOSPI IT 업종 하락, 원/달러 환율 상승 경로로 포트폴리오에 영향을 줍니다. 팩터 모델 기준 예상 손익은 <span onClick="{{ oc.pnl }}" style="font-weight:700;color:{{ totalColor }};cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">{{ totalTxt }}</span>(<span onClick="{{ oc.amt }}" style="color:{{ totalColor }};cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">{{ amountTxt }}</span>), 추정 범위는 <span onClick="{{ oc.range }}" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">{{ rangeTxt }}</span>입니다. 과거 유사 국면 5개 구간의 중앙값은 <span onClick="{{ oc.reg }}" style="color:#1E5BD8;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">−4.9%</span>입니다.</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="font-size:15px;font-weight:700">2. 파급 경로</div>
+                <div style="display:flex;flex-direction:column;gap:6px;font-size:14px;color:#2A3140">
+                  <div style="display:flex;gap:8px;align-items:center"><span style="width:20px;color:#7A8394">①</span>미국 반도체 관세 25% → 한국 반도체 수출 감소 → KOSPI IT 업종 하락 → 국내 주식<span style="margin-left:auto;font-size:12px;font-weight:600;color:#16264A">확신도 높음</span></div>
+                  <div style="display:flex;gap:8px;align-items:center"><span style="width:20px;color:#7A8394">②</span>한국 반도체 수출 감소 → 원/달러 환율 상승 → 원화 자산 달러 환산 손실<span style="margin-left:auto;font-size:12px;font-weight:600;color:#6F84B5">확신도 중간</span></div>
+                  <div style="display:flex;gap:8px;align-items:center"><span style="width:20px;color:#7A8394">③</span>안전자산 선호 → 미 국채 금리 하락 → 채권 평가이익<span style="margin-left:auto;font-size:12px;font-weight:600;color:#6F84B5">확신도 중간</span></div>
+                  <div style="display:flex;gap:8px;align-items:center;color:#7A8394"><span style="width:20px">—</span>대만 반도체 공급망 재편 경로는 근거 불충분으로 시나리오에서 제외</div>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="font-size:15px;font-weight:700">3. 손익</div>
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 80px 80px 90px;font-size:13px;font-variant-numeric:tabular-nums;border-top:1px solid #141A24">
+                  <span style="padding:6px 0;color:#7A8394;border-bottom:1px solid #E3E6EB">자산</span><span style="padding:6px 0;text-align:right;color:#7A8394;border-bottom:1px solid #E3E6EB">비중</span><span style="padding:6px 0;text-align:right;color:#7A8394;border-bottom:1px solid #E3E6EB">손익</span><span style="padding:6px 0;text-align:right;color:#7A8394;border-bottom:1px solid #E3E6EB">기여도</span>
+                </div>
+                <sc-for list="{{ top5 }}" as="t" hint-placeholder-count="5">
+                  <div onClick="{{ t.open }}" style="display:grid;grid-template-columns:minmax(0,1fr) 80px 80px 90px;font-size:13px;font-variant-numeric:tabular-nums;border-bottom:1px solid #EEF0F3;cursor:pointer">
+                    <span style="padding:6px 0">{{ t.name }}</span><span style="padding:6px 0;text-align:right">{{ t.w }}</span><span style="padding:6px 0;text-align:right;color:{{ t.rc }}">{{ t.r }}</span><span style="padding:6px 0;text-align:right;color:{{ t.cc }};text-decoration:underline dotted;text-underline-offset:3px">{{ t.c }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="font-size:15px;font-weight:700">4. 헤지 제안</div>
+                <sc-for list="{{ hedges }}" as="h" hint-placeholder-count="2">
+                  <div style="display:flex;flex-direction:column;gap:2px;padding:12px 14px;background:#F5F6F8;border-radius:6px">
+                    <div style="font-size:14px;font-weight:700">{{ h.t }} <span onClick="{{ h.open }}" style="font-weight:500;color:#4A5363;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">({{ h.why }})</span></div>
+                    <div style="font-size:12px;color:#7A8394">적용 규칙: {{ h.rule }} · engine/hedge.py</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="font-size:15px;font-weight:700">5. 데이터 출처</div>
+                <div style="font-size:12px;color:#4A5363;line-height:1.8">[1] Federal Register, 반도체 수입품 관세 고시 (수집 2026-10-01)<br>[2] 관세청 수출입무역통계, 품목별 국가별 수출 (수집 2026-10-02)<br>[3] 한국은행 ECOS, 원/달러 환율·국고채 3년 (수집 2026-10-13)<br>[4] FRED, DGS10·SP500 (수집 2026-10-13)<br>[5] 공공데이터포털 주식시세, KOSPI·업종지수 (수집 2026-10-13)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </sc-if>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isS4 }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:1440px;margin:0 auto;padding:28px 32px 48px;display:flex;flex-direction:column;gap:16px">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="font-size:22px;font-weight:700;letter-spacing:-0.02em">포트폴리오</div>
+    <span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;white-space:nowrap;flex:none;border-radius:4px;background:#EEF1F7;color:#16264A;border:1px dashed #6F84B5;font-size:12px;font-weight:700">가상 포트폴리오 · 실제 기관 보유내역 아님</span>
+    <select value="{{ pf }}" onChange="{{ onPf4 }}" style="margin-left:auto;height:36px;border:1px solid #CDD2DA;border-radius:6px;padding:0 10px;font-size:14px;background:#FFFFFF;min-width:300px">
+      <option value="pa">가상 모델 포트폴리오 A (멀티에셋)</option>
+      <option value="pb">가상 모델 포트폴리오 B (채권 중심)</option>
+    </select>
+  </div>
+  <div style="font-size:13px;color:#7A8394">{{ pfMeta }}</div>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+    <sc-for list="{{ donuts }}" as="d" hint-placeholder-count="3">
+      <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:18px 20px;display:flex;gap:20px;align-items:center">
+        <div style="width:132px;height:132px;flex:none;border-radius:50%;background:{{ d.grad }};display:flex;align-items:center;justify-content:center">
+          <div style="width:84px;height:84px;border-radius:50%;background:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#4A5363">{{ d.t }}</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0">
+          <sc-for list="{{ d.items }}" as="i">
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="width:10px;height:10px;border-radius:2px;background:{{ i.c }};flex:none"></span><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i.l }}</span><span style="font-variant-numeric:tabular-nums;font-weight:600">{{ i.v }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;overflow:hidden">
+    <div style="padding:12px 20px;font-size:14px;font-weight:700">보유 비중</div>
+    <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 100px 80px 120px 90px minmax(0,1fr);gap:16px;padding:8px 20px;background:#F8F9FA;font-size:12px;color:#7A8394;font-weight:600"><span>자산</span><span>자산군</span><span>통화</span><span>업종</span><span style="text-align:right">비중</span><span></span></div>
+    <sc-for list="{{ holdings }}" as="h" hint-placeholder-count="8">
+      <div style="display:grid;grid-template-columns:minmax(0,1.4fr) 100px 80px 120px 90px minmax(0,1fr);gap:16px;padding:10px 20px;border-top:1px solid #EEF0F3;font-size:13px;align-items:center">
+        <span style="font-weight:600">{{ h.name }}</span><span style="color:#4A5363">{{ h.cls }}</span><span style="font:12px ui-monospace,Menlo,monospace;color:#4A5363">{{ h.cur }}</span><span style="color:#4A5363">{{ h.sec }}</span>
+        <span style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums">{{ h.wTxt }}</span>
+        <div style="height:6px;border-radius:3px;background:#EEF0F3"><div style="width:{{ h.wBar }};height:6px;border-radius:3px;background:#3B5185"></div></div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isS6 }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:1440px;margin:0 auto;padding:28px 32px 48px;display:flex;flex-direction:column;gap:16px">
+  <div>
+    <div style="font-size:22px;font-weight:700;letter-spacing:-0.02em">실행 이력</div>
+    <div style="font-size:13px;color:#7A8394">모든 실행은 calc_log와 Agent 단계 기록을 함께 보관합니다.</div>
+  </div>
+  <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:150px 80px minmax(0,1fr) 230px 100px 110px 80px;gap:16px;padding:10px 20px;background:#F8F9FA;font-size:12px;color:#7A8394;font-weight:600"><span>실행일시</span><span>입구 유형</span><span>이벤트·시나리오 요약</span><span>포트폴리오</span><span style="text-align:right">예상 손익</span><span>검증 상태</span><span></span></div>
+    <sc-for list="{{ runs }}" as="r" hint-placeholder-count="7">
+      <div style="display:grid;grid-template-columns:150px 80px minmax(0,1fr) 230px 100px 110px 80px;gap:16px;padding:12px 20px;border-top:1px solid #EEF0F3;font-size:13px;align-items:center">
+        <span style="font-variant-numeric:tabular-nums;color:#4A5363">{{ r.at }}</span>
+        <span><span style="height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#EEF1F7;color:#16264A;font-size:12px;font-weight:600;display:inline-flex;align-items:center">{{ r.entry }}</span></span>
+        <span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sum }}</span>
+        <span style="color:#4A5363;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.pf }}</span>
+        <span onClick="{{ r.open }}" style="text-align:right;font-weight:700;color:{{ r.color }};font-variant-numeric:tabular-nums;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px">{{ r.pnlTxt }}</span>
+        <span><span style="height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:{{ r.vbg }};color:{{ r.vfg }};font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px">{{ r.vTxt }}</span></span>
+        <button onClick="{{ r.open }}" style="white-space:nowrap;flex:none;height:30px;padding:0 12px;border:1px solid #CDD2DA;border-radius:6px;background:#FFFFFF;font-size:12px;font-weight:600;cursor:pointer" style-hover="border-color:#16264A;color:#16264A">열기</button>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSys }}" hint-placeholder-val="{{ false }}">
+<div style="max-width:1440px;margin:0 auto;padding:28px 32px 64px;display:flex;flex-direction:column;gap:28px">
+  <div>
+    <div style="font-size:22px;font-weight:700;letter-spacing:-0.02em">컴포넌트 · 토큰</div>
+    <div style="font-size:13px;color:#7A8394">손익 색상은 국내식(이익 빨강 · 손실 파랑). 포인트 컬러는 딥 네이비, 나머지는 뉴트럴.</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div style="font-size:15px;font-weight:700">색상</div>
+    <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px">
+      <sc-for list="{{ tokens }}" as="t" hint-placeholder-count="12">
+        <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;overflow:hidden">
+          <div style="height:52px;background:{{ t.hex }};border-bottom:1px solid #EEF0F3"></div>
+          <div style="padding:8px 10px"><div style="font-size:12px;font-weight:700">{{ t.n }}</div><div style="font:11px ui-monospace,Menlo,monospace;color:#7A8394">{{ t.v }}</div><div style="font:11px ui-monospace,Menlo,monospace;color:#4A5363">{{ t.hex }}</div></div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px">
+    <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:15px;font-weight:700">타이포그래피 · Pretendard</div>
+      <div style="display:flex;align-items:baseline;gap:16px;border-top:1px solid #EEF0F3;padding-top:10px"><span style="width:110px;font:11px ui-monospace,Menlo,monospace;color:#7A8394">display 30/36 700</span><span style="font-size:30px;font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums">−3.8%</span></div>
+      <div style="display:flex;align-items:baseline;gap:16px;border-top:1px solid #EEF0F3;padding-top:10px"><span style="width:110px;font:11px ui-monospace,Menlo,monospace;color:#7A8394">title 22/30 700</span><span style="font-size:22px;font-weight:700;letter-spacing:-0.02em">정책 이벤트</span></div>
+      <div style="display:flex;align-items:baseline;gap:16px;border-top:1px solid #EEF0F3;padding-top:10px"><span style="width:110px;font:11px ui-monospace,Menlo,monospace;color:#7A8394">heading 16/24 700</span><span style="font-size:16px;font-weight:700">반도체 수입품 관세 부과 발표</span></div>
+      <div style="display:flex;align-items:baseline;gap:16px;border-top:1px solid #EEF0F3;padding-top:10px"><span style="width:110px;font:11px ui-monospace,Menlo,monospace;color:#7A8394">body 14/21 400</span><span style="font-size:14px">원/달러 환율 상승 경로로 영향을 줍니다.</span></div>
+      <div style="display:flex;align-items:baseline;gap:16px;border-top:1px solid #EEF0F3;padding-top:10px"><span style="width:110px;font:11px ui-monospace,Menlo,monospace;color:#7A8394">small 13/20 400</span><span style="font-size:13px;color:#4A5363">출처 Federal Register</span></div>
+      <div style="display:flex;align-items:baseline;gap:16px;border-top:1px solid #EEF0F3;padding-top:10px"><span style="width:110px;font:11px ui-monospace,Menlo,monospace;color:#7A8394">caption 12/16 600</span><span style="font-size:12px;font-weight:600;color:#7A8394">추정 범위 (95%)</span></div>
+      <div style="display:flex;align-items:baseline;gap:16px;border-top:1px solid #EEF0F3;padding-top:10px"><span style="width:110px;font:11px ui-monospace,Menlo,monospace;color:#7A8394">수치 tnum</span><span style="font-size:14px;font-variant-numeric:tabular-nums">1,240 · 0.871 · −12.0</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:15px;font-weight:700">상태 배지</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#E5F4EC;color:#1B7F4B;font-size:12px;font-weight:600">✓ 검증 통과</span>
+          <span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#FFF4D1;color:#8A5E00;font-size:12px;font-weight:600">⚠ 근거 불충분</span>
+          <span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#FFF4D1;color:#8A5E00;font-size:12px;font-weight:600">경고</span>
+          <span style="display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#FDECEA;color:#B42318;font-size:12px;font-weight:600">! 실패</span>
+          <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#EEF1F7;color:#16264A;border:1px dashed #6F84B5;font-size:12px;font-weight:600">가상 포트폴리오</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#16264A;color:#FFFFFF;font-size:12px;font-weight:600">확신도 높음</span>
+          <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#E4E9F2;color:#2A3F6E;font-size:12px;font-weight:600">확신도 중간</span>
+          <span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;white-space:nowrap;flex:none;border-radius:4px;background:#FFFFFF;color:#7A8394;border:1px dashed #A3AAB6;font-size:12px;font-weight:600">확신도 낮음</span>
+        </div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:15px;font-weight:700">수치 표시 (클릭 가능)</div>
+        <div style="display:flex;gap:28px;align-items:baseline;flex-wrap:wrap">
+          <span onClick="{{ oc.pnl }}" style="font-size:30px;font-weight:700;color:#1E5BD8;cursor:pointer;text-decoration:underline dotted;text-decoration-thickness:1px;text-underline-offset:5px;font-variant-numeric:tabular-nums">−3.8%</span>
+          <span style="font-size:16px;font-weight:700;color:#D23F31;text-decoration:underline dotted;text-underline-offset:4px;font-variant-numeric:tabular-nums">+1.3%</span>
+          <span style="font-size:14px;font-weight:600;color:#4A5363;text-decoration:underline dotted;text-underline-offset:3px;font-variant-numeric:tabular-nums">0.0%</span>
+        </div>
+        <div style="font-size:12px;color:#7A8394">점선 밑줄 = 계산 근거 연결. 이익 #D23F31, 손실 #1E5BD8, 0은 중립 회색. 부호는 유니코드 마이너스(−) 사용.</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px">
+    <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:4px">
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px">단계 타임라인 항목</div>
+      <sc-for list="{{ stepDemo }}" as="st" hint-placeholder-count="6">
+        <div style="display:flex;gap:12px;padding:8px 0;border-top:1px solid #EEF0F3;align-items:center">
+          <div style="width:24px;height:24px;flex:none;border-radius:50%;background:{{ st.dotBg }};border:1.5px solid {{ st.dotBd }};color:{{ st.dotColor }};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700"><sc-if value="{{ st.isRun }}">{{ spinner }}</sc-if><sc-if value="{{ st.glyphOn }}">{{ st.glyph }}</sc-if></div>
+          <span style="font-size:13px;font-weight:700;color:{{ st.nameColor }};width:140px">{{ st.name }}</span>
+          <span style="font-size:12px;font-weight:600;color:{{ st.stColor }}">{{ st.stLabel }}</span>
+          <span style="margin-left:auto;font-size:12px;color:#7A8394">{{ st.time }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:15px;font-weight:700">확신도 엣지</div>
+        <div style="display:flex;align-items:center;gap:14px"><span style="width:120px;border-top:2.5px solid #16264A"></span><span style="width:20px;height:20px;border-radius:50%;border:1.5px solid #16264A;color:#16264A;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center">−</span><span style="font-size:13px">높음 · 실선 2.5px · navy-900</span></div>
+        <div style="display:flex;align-items:center;gap:14px"><span style="width:120px;border-top:2px solid #8C9AB8"></span><span style="width:20px;height:20px;border-radius:50%;border:1.5px solid #8C9AB8;color:#4A5363;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center">+</span><span style="font-size:13px">중간 · 실선 2px · conf-mid</span></div>
+        <div style="display:flex;align-items:center;gap:14px"><span style="width:120px;border-top:1.5px dashed #A3AAB6"></span><span style="width:20px;height:20px;border-radius:50%;border:1.5px dashed #A3AAB6;color:#7A8394;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center">+</span><span style="font-size:13px">낮음 · 점선 1.5px · 회색</span></div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E3E6EB;border-radius:8px;padding:18px 20px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <div style="grid-column:1/-1;font-size:15px;font-weight:700">공통 상태</div>
+        <div style="border:1px solid #EEF0F3;border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;font-weight:600;color:#7A8394">로딩</span><div style="height:10px;width:60%;border-radius:3px;background:#E7EAEE"></div><div style="height:10px;border-radius:3px;background:#EEF0F3"></div><div style="height:10px;width:80%;border-radius:3px;background:#EEF0F3"></div></div>
+        <div style="border:1px dashed #CDD2DA;border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-start"><span style="font-size:12px;font-weight:600;color:#7A8394">데이터 없음</span><span style="font-size:12px">분석 기록이 없습니다</span><span onClick="{{ goS2 }}" style="font-size:12px;font-weight:700;color:#FFFFFF;background:#16264A;border-radius:4px;padding:3px 8px;cursor:pointer">새 분석</span></div>
+        <div style="border:1px solid #F3C3BD;border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-start"><span style="font-size:12px;font-weight:600;color:#B42318">실행 실패</span><span style="font-size:12px">API 응답 시간 초과</span><span onClick="{{ openFailed }}" style="font-size:12px;font-weight:700;color:#16264A;border:1px solid #16264A;border-radius:4px;padding:2px 8px;cursor:pointer">다시 시도</span></div>
+      </div>
+    </div>
+  </div>
+  <div style="background:#141A24;border-radius:8px;padding:18px 20px;display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;align-items:center"><span style="font-size:13px;font-weight:700;color:#FFFFFF">CSS 변수 (Tailwind theme.extend.colors로 옮겨 사용)</span><button onClick="{{ copyCss }}" style="white-space:nowrap;flex:none;margin-left:auto;height:28px;padding:0 10px;border:1px solid #4A5363;border-radius:4px;background:transparent;color:#FFFFFF;font-size:12px;cursor:pointer">복사</button></div>
+    <pre style="margin:0;font:12px/1.6 ui-monospace,Menlo,monospace;color:#C9D1E3;white-space:pre-wrap">{{ cssText }}</pre>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ calcOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;z-index:50">
+    <div onClick="{{ closeCalc }}" style="position:absolute;inset:0;background:rgba(20,26,36,0.28)"></div>
+    <div style="position:absolute;top:0;right:0;bottom:0;width:420px;background:#FFFFFF;box-shadow:-8px 0 24px rgba(20,26,36,0.12);overflow:auto;padding:20px 24px 32px;display:flex;flex-direction:column;gap:18px">
+      <div style="display:flex;align-items:center"><span style="font-size:12px;font-weight:700;color:#7A8394;letter-spacing:0.04em">계산 근거</span><span onClick="{{ closeCalc }}" style="margin-left:auto;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:#4A5363" style-hover="background:#F5F6F8">×</span></div>
+      <div>
+        <div style="font-size:14px;font-weight:600;color:#4A5363">{{ cd.title }}</div>
+        <div style="font-size:36px;font-weight:700;letter-spacing:-0.02em;color:{{ cd.color }};font-variant-numeric:tabular-nums;line-height:1.2;margin-top:2px">{{ cd.value }}</div>
+        <div style="font-size:13px;color:#7A8394;margin-top:2px">{{ cd.sub }}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12px;font-weight:700;color:#4A5363">계산식</div>
+        <div style="background:#F5F6F8;border-radius:6px;padding:12px 14px;font-size:14px;line-height:1.75;font-family:'Pretendard Variable',Pretendard,sans-serif;font-weight:500;white-space:pre-line;color:#141A24">{{ cd.formula }}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12px;font-weight:700;color:#4A5363">입력값</div>
+        <div style="border:1px solid #E3E6EB;border-radius:6px;overflow:hidden">
+          <div style="display:grid;grid-template-columns:{{ cd.grid }};gap:8px;padding:7px 12px;background:#F8F9FA;font-size:12px;color:#7A8394;font-weight:600">
+            <sc-for list="{{ cd.cols }}" as="c"><span style="text-align:{{ c.a }}">{{ c.v }}</span></sc-for>
+          </div>
+          <sc-for list="{{ cd.rows }}" as="r">
+            <div style="display:grid;grid-template-columns:{{ cd.grid }};gap:8px;padding:7px 12px;border-top:1px solid #EEF0F3;font-size:13px;font-variant-numeric:tabular-nums">
+              <sc-for list="{{ r }}" as="x"><span style="text-align:{{ x.a }};color:{{ x.c }};font-weight:{{ x.w }}">{{ x.v }}</span></sc-for>
+            </div>
+          </sc-for>
+        </div>
+        <div style="font-size:12px;color:#7A8394;line-height:1.5">{{ cd.note }}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-size:12px;font-weight:700;color:#4A5363">데이터 출처</div>
+        <sc-for list="{{ cd.srcs }}" as="s">
+          <div style="display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:6px 0;border-bottom:1px solid #EEF0F3"><span>{{ s.n }}</span><span style="color:#7A8394;font-variant-numeric:tabular-nums;white-space:nowrap">수집 {{ s.d }}</span></div>
+        </sc-for>
+      </div>
+      <div style="margin-top:auto;font:11px ui-monospace,Menlo,monospace;color:#A3AAB6">calc_id {{ cd.id }} · engine v0.4.2 (a1b9e3f)</div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#16264A;color:#FFFFFF;padding:10px 18px;border-radius:6px;font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(20,26,36,0.2);z-index:60">{{ toast }}</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { screen:'s1', tab:'path', calc:null, country:'all', type:'all', entry:'event', ev:'e1', scenText:'', pfSel:'pa', horizon:'20', steps:null, running:false, retried:true, mode:'done', exp:null, node:'n5', draft:null, applied:null, toast:null, loop:null, pf:'pa', runEntry:'event', runTitle:'미국 반도체 수입품 관세 부과 발표 (관세율 25%)', runId:'R-20261014-0931', t0:0, now:0, totalTime:'14.0s' };
+  tlRef = React.createRef();
+  tm = [];
+  componentDidMount(){ this.measure(); }
+  componentDidUpdate(){ this.measure(); }
+  componentWillUnmount(){ this.tm.forEach(clearTimeout); clearInterval(this.iv); clearTimeout(this.tt); }
+  measure(){
+    const el=this.tlRef.current; if(!el) return;
+    const a=el.querySelector('[data-step="1"]'), b=el.querySelector('[data-step="5"]'); if(!a||!b) return;
+    const top=a.offsetTop+22, h=b.offsetTop-a.offsetTop, l=this.state.loop;
+    if(!l||l.top!==top||l.h!==h) this.setState({loop:{top,h}});
+  }
+  toast(m){ clearTimeout(this.tt); this.setState({toast:m}); this.tt=setTimeout(()=>this.setState({toast:null}),3200); }
+  setSt(i,p){ this.setState(s=>{ const a=(s.steps||this.D().done).slice(); a[i]={...a[i],...p}; return {steps:a}; }); }
+  startRun(o={}){
+    const d=this.D(), entry=o.entry||this.state.runEntry, from=o.from||0;
+    this.tm.forEach(clearTimeout); this.tm=[]; clearInterval(this.iv);
+    const skip=entry==='scenario'?2:0, start=Math.max(from,skip);
+    const steps=d.agents.map((a,i)=> i<skip?{s:'skip',t:''}: i<start?{...d.done[i]}:{s:'wait',t:''});
+    const t0=Date.now();
+    this.setState({steps, running:true, mode:'done', retried:false, screen:'s3', calc:null, exp:null, t0, now:t0, runEntry:entry, ...(o.patch||{})});
+    this.iv=setInterval(()=>this.setState({now:Date.now()}),100);
+    let t=250; const at=(dt,fn)=>{ t+=dt; this.tm.push(setTimeout(fn,t)); };
+    const S=(i,p)=>this.setSt(i,p);
+    const run=(i,dur,lb,x={})=>{ at(0,()=>S(i,{s:'run',att:x.att||1})); at(dur,()=>S(i,{s:'done',t:lb,...x})); };
+    const durs=[900,1700,900,500,600], lbs=['1.2s','4.1s','1.8s','0.6s','0.9s'];
+    for(let i=start;i<5;i++) run(i,durs[i],lbs[i]);
+    if(entry==='event'&&start===0){
+      at(0,()=>S(5,{s:'run'}));
+      at(800,()=>{ S(5,{s:'retry',t:'0.2s',note:'반려: 경로 2의 2단계 근거 부족 → Impact Mapper 재추론'}); [2,3,4].forEach(j=>S(j,{s:'wait',t:''})); this.setState({retried:true}); });
+      run(1,1700,'7.7s',{att:2}); run(2,500,'1.1s'); run(3,300,'0.5s'); run(4,400,'0.8s');
+      run(5,600,'0.3s',{att:2,note:'1차 반려 후 2차 통과 · 규칙 4/4'});
+    } else run(5,700,'0.3s',{note:'검증 통과 · 규칙 4/4'});
+    run(6,1500,'3.4s');
+    at(100,()=>{ clearInterval(this.iv); this.setState(s=>({running:false, totalTime:((Date.now()-s.t0)/1000).toFixed(1)+'s'})); this.toast(o.done||'분석 완료 · 검증 통과'); });
+  }
+  D(){
+    if(this._d) return this._d;
+    const agents=[
+      {name:'Event Analyst',desc:'이벤트 구조화',inp:'Federal Register 원문 (2026-10-01)',out:'US · 관세 · semiconductor · 25%',model:'claude-haiku-5-5',tok:'3,120 / 412'},
+      {name:'Impact Mapper',desc:'파급 경로 추론',inp:'event + 무역·거시 요약 통계',out:'경로 3개 · 단계 10개 (low 2)',model:'claude-haiku-5-5',tok:'8,940 / 1,205'},
+      {name:'Scenario Builder',desc:'충격값 변환',inp:'impact_paths 3개',out:'충격 변수 6개 · 과거 최대 초과 0',model:'haiku + engine',tok:'2,210 / 318'},
+      {name:'Regime Finder',desc:'과거 유사 국면',inp:'scenario (20영업일)',out:'유사 구간 5개 · 최고 0.87',model:'engine (LLM 없음)',tok:'—'},
+      {name:'Risk Engine',desc:'손익 계산',inp:'scenario · 포트폴리오 8종목',out:'ΔP −3.8% · calc_c7f2a91e',model:'engine (LLM 없음)',tok:'—'},
+      {name:'Validator',desc:'수치·근거 검증',inp:'RunState + 보고서 초안',out:'규칙 4개 통과',model:'규칙 (LLM 없음)',tok:'—'},
+      {name:'Report Writer',desc:'보고서 작성',inp:'RunState 전체',out:'5개 섹션 · 인용 9건',model:'claude-haiku-5-5',tok:'6,480 / 1,890'},
+    ];
+    const done=[{s:'done',t:'1.2s'},{s:'done',t:'7.7s',att:2},{s:'done',t:'1.1s'},{s:'done',t:'0.5s'},{s:'done',t:'0.8s'},{s:'done',t:'0.3s',att:2,note:'1차 반려(경로 2 근거 부족) 후 2차 통과 · 규칙 4/4'},{s:'done',t:'3.4s'}];
+    const failed=[{s:'done',t:'1.2s'},{s:'fail',t:'30.0s',att:3,note:'Claude API 응답 시간 초과 · 재시도 한도(2회) 초과'},{s:'wait',t:''},{s:'wait',t:''},{s:'wait',t:''},{s:'wait',t:''},{s:'wait',t:''}];
+    const F={
+      USDKRW:{n:'원/달러 환율',u:'%',basis:'2018 관세 국면 평균 변동',hist:14.2},
+      KOSPI_IT:{n:'KOSPI IT 업종',u:'%',basis:'과거 유사 국면 중앙값',hist:24.5},
+      DGS10:{n:'미국 국채 10년',u:'%p',basis:'안전자산 선호',hist:0.62},
+      KOSPI:{n:'KOSPI',u:'%',basis:'유사 국면 중앙값 (IT 제외 조정)',hist:18.3},
+      SPX:{n:'S&P 500',u:'%',basis:'2018·2019 관세 발표 후 20영업일 평균',hist:12.4},
+      KTB3Y:{n:'국고채 3년',u:'%p',basis:'외국인 채권 자금 유출 국면 평균',hist:0.48},
+    };
+    const FK=['USDKRW','KOSPI_IT','DGS10','KOSPI','SPX','KTB3Y'];
+    const S0={USDKRW:5.0,KOSPI_IT:-12.0,DGS10:-0.15,KOSPI:-4.2,SPX:-2.1,KTB3Y:0.05};
+    const H=[
+      {id:'h1',name:'국내 반도체 대형주',cls:'주식',cur:'KRW',sec:'반도체',w:14,fac:[['KOSPI_IT',0.85],['USDKRW',-0.80]]},
+      {id:'h2',name:'KOSPI 200 (IT 제외)',cls:'주식',cur:'KRW',sec:'경기민감',w:10,fac:[['KOSPI',0.98],['USDKRW',-0.80]]},
+      {id:'h3',name:'국고채 3년',cls:'채권',cur:'KRW',sec:'국채',w:8,fac:[['KTB3Y',-2.7],['USDKRW',-0.95]]},
+      {id:'h4',name:'미국 주식 (S&P 500)',cls:'주식',cur:'USD',sec:'혼합',w:26,fac:[['SPX',0.9]]},
+      {id:'h5',name:'대만·아시아 IT',cls:'주식',cur:'TWD',sec:'반도체',w:6,fac:[['KOSPI_IT',0.62]]},
+      {id:'h6',name:'미국 국채 10년',cls:'채권',cur:'USD',sec:'국채',w:24,fac:[['DGS10',-8.7]]},
+      {id:'h7',name:'유럽 주식',cls:'주식',cur:'EUR',sec:'혼합',w:7,fac:[['SPX',0.43]]},
+      {id:'h8',name:'금',cls:'대체',cur:'USD',sec:'원자재',w:5,fac:[['DGS10',-4.7]]},
+    ];
+    const HB=[
+      {name:'미국 국채 10년',cls:'채권',cur:'USD',sec:'국채',w:30},{name:'미국 국채 2년',cls:'채권',cur:'USD',sec:'국채',w:15},
+      {name:'국고채 10년',cls:'채권',cur:'KRW',sec:'국채',w:20},{name:'국고채 3년',cls:'채권',cur:'KRW',sec:'국채',w:10},
+      {name:'미국 투자등급 회사채',cls:'채권',cur:'USD',sec:'회사채',w:15},{name:'미국 주식 (S&P 500)',cls:'주식',cur:'USD',sec:'혼합',w:10},
+    ];
+    const E=[
+      {id:'e1',cc:'US',c:'US',country:'미국',type:'관세',title:'반도체 수입품 관세 부과 발표',date:'2026-10-01',key:'관세율 25%',src:'Federal Register',summary:'한국·대만산 메모리·로직 반도체 수입품 대상, 2026-11-01 발효',last:-3.8},
+      {id:'e4',cc:'EU',c:'EU',country:'EU',type:'규제',title:'탄소국경조정제도 적용 업종 확대',date:'2026-10-08',key:'대상 업종 +2',src:'EUR-Lex',summary:'유기화학·폴리머 업종 추가, 2027-01 보고 의무 시작'},
+      {id:'e6',cc:'KR',c:'KR',country:'한국',type:'금리',title:'한국은행 기준금리 동결',date:'2026-10-10',key:'변동 0.00%p',src:'한국은행',summary:'금융통화위원회 정례회의 결정'},
+      {id:'e5',cc:'CN',c:'CN',country:'중국',type:'관세',title:'미국산 농산물 보복관세 부과',date:'2026-10-06',key:'관세율 15%',src:'중국 상무부',summary:'대두·옥수수 등 미국산 농산물 대상'},
+      {id:'e2',cc:'US',c:'US',country:'미국',type:'금리',title:'연준 기준금리 인상',date:'2026-09-17',key:'+0.25%p',src:'Federal Reserve',summary:'FOMC 정례회의 결정',last:-1.6},
+      {id:'e3',cc:'KR',c:'KR',country:'한국',type:'규제',title:'첨단산업 수출 통제 품목 확대',date:'2026-09-10',key:'대상 품목 12개',src:'대한민국 정책브리핑',summary:'반도체 장비·소재 품목 추가',last:-1.2},
+    ];
+    const RUNS=[
+      {at:'2026-10-14 09:31',entry:'이벤트',sum:'미국 반도체 수입품 관세 25%',pf:'가상 모델 포트폴리오 A',pnl:-3.8,v:'pass'},
+      {at:'2026-10-13 16:40',entry:'시나리오',sum:'유가 30% 급등 + 원화 10% 약세',pf:'가상 모델 포트폴리오 A',pnl:-2.9,v:'pass'},
+      {at:'2026-10-13 11:02',entry:'이벤트',sum:'연준 기준금리 인상 +0.25%p',pf:'가상 모델 포트폴리오 B',pnl:-1.6,v:'warn'},
+      {at:'2026-10-10 15:05',entry:'시나리오',sum:'미국 금리 1%p 인상',pf:'가상 모델 포트폴리오 B',pnl:-4.7,v:'pass'},
+      {at:'2026-10-08 09:48',entry:'이벤트',sum:'첨단산업 수출 통제 품목 확대',pf:'가상 모델 포트폴리오 A',pnl:-1.2,v:'warn'},
+      {at:'2026-10-07 17:21',entry:'시나리오',sum:'반도체 업종 20% 하락',pf:'가상 모델 포트폴리오 A',pnl:-3.1,v:'pass'},
+      {at:'2026-10-06 10:10',entry:'이벤트',sum:'미국산 농산물 보복관세 부과',pf:'가상 모델 포트폴리오 A',pnl:null,v:'fail'},
+    ];
+    const R=[
+      {p:'2018-03-22 ~ 2018-04-19',s:0.87,pnl:-4.9,tag:'미·중 1차 관세',m:1.18},
+      {p:'2019-05-06 ~ 2019-06-03',s:0.82,pnl:-5.6,tag:'관세 인상 재개',m:1.0},
+      {p:'2018-10-04 ~ 2018-11-01',s:0.78,pnl:-6.2,tag:'글로벌 IT 조정',m:1.32},
+      {p:'2022-09-13 ~ 2022-10-11',s:0.71,pnl:-4.4,tag:'강달러·긴축',m:0.86},
+      {p:'2015-08-11 ~ 2015-09-08',s:0.64,pnl:-1.9,tag:'위안화 절하',m:0.41},
+    ];
+    const N={
+      n1:{t:'미국 반도체 관세 25%',layer:'정책',conf:'high',dir:'출발 이벤트',ev:[{t:'Federal Register 고시 원문: 관세율 25%, 발효 2026-11-01',src:'Federal Register',d:'2026-10-01'},{t:'대상 HS 코드 8541·8542 (반도체 소자·집적회로)',src:'Federal Register',d:'2026-10-01'}]},
+      n2:{t:'한국 반도체 수출 감소',layer:'산업',conf:'high',dir:'관세 → 수출 (−) · 관세 인상 시 대미 수출 감소',ev:[{t:'대미 반도체 수출 비중 18.4% (2025년 기준)',src:'관세청 수출입무역통계',d:'2026-10-02'},{t:'2018 관세 국면 대미 반도체 수출 증가율 −9.8%p',src:'관세청 수출입무역통계',d:'2026-10-02'},{t:'수출 증가율과 관세율 변화 회귀 계수 −0.41',src:'engine/factors.py',d:'2026-10-14'}]},
+      n3:{t:'대만 반도체 공급망 재편',layer:'산업',conf:'low',dir:'관세 → 공급망 재편 (+) · 정량 근거 없음',ev:[{t:'대만 업체 미국 내 생산 확대 보도 1건 (정량 데이터 없음)',src:'뉴스 요약',d:'2026-10-03'}]},
+      n4:{t:'원/달러 환율 상승',layer:'거시 변수',conf:'mid',dir:'수출 감소 → 환율 (+)',ev:[{t:'수출 감소 국면 원/달러 20영업일 평균 변동 +4.1%',src:'한국은행 ECOS 731Y001',d:'2026-10-13'},{t:'외국인 주식 순매도와 환율 상관계수 0.62',src:'공공데이터포털 주식시세',d:'2026-10-13'}]},
+      n5:{t:'KOSPI IT 업종 하락',layer:'거시 변수',conf:'high',dir:'수출 감소 → IT 업종 (−)',ev:[{t:'KOSPI IT 업종의 대미 수출 증가율 베타 1.34 (R² 0.58)',src:'engine/factors.py',d:'2026-10-13'},{t:'과거 유사 국면 IT 업종 20영업일 중앙값 −12.0%',src:'engine/regimes.py',d:'2026-10-14'}]},
+      n6:{t:'미 국채 금리 하락',layer:'거시 변수',conf:'mid',dir:'관세 → 안전자산 선호 → 금리 (−)',ev:[{t:'위험회피 국면 DGS10 20영업일 중앙값 −0.15%p',src:'FRED DGS10',d:'2026-10-13'}]},
+      n7:{t:'국내 주식',layer:'자산군',conf:'high',dir:'IT 업종·환율 → 국내 주식 (−)',ev:[{t:'국내 주식 비중 24% (반도체 14%p)',src:'가상 모델 포트폴리오 A',d:'2026-10-14'}]},
+      n8:{t:'해외 주식',layer:'자산군',conf:'mid',dir:'IT 업종 → 아시아 IT (−)',ev:[{t:'해외 주식 비중 39% (아시아 IT 6%p)',src:'가상 모델 포트폴리오 A',d:'2026-10-14'}]},
+      n9:{t:'채권',layer:'자산군',conf:'mid',dir:'금리 하락 → 채권 가격 (+)',ev:[{t:'채권 비중 32% · 평균 듀레이션 6.1년',src:'가상 모델 포트폴리오 A',d:'2026-10-14'}]},
+    };
+    const tokens=[
+      ['navy-900','#16264A'],['navy-700','#2A3F6E'],['navy-500','#3B5185'],['navy-50','#EEF1F7'],['bg','#F5F6F8'],['surface','#FFFFFF'],
+      ['border','#E3E6EB'],['border-strong','#CDD2DA'],['text','#141A24'],['text-2','#4A5363'],['text-3','#7A8394'],['conf-mid','#8C9AB8'],
+      ['gain','#D23F31'],['gain-bg','#FDEDEB'],['loss','#1E5BD8'],['loss-bg','#EAF0FD'],['pass','#1B7F4B'],['pass-bg','#E5F4EC'],
+      ['warn','#8A5E00'],['warn-bg','#FFF4D1'],['fail','#B42318'],['fail-bg','#FDECEA'],['conf-low','#A3AAB6'],['loop','#D9A92E'],
+    ].map(([n,hex])=>({n,hex,v:'--rp-'+n}));
+    return this._d={agents,done,failed,F,FK,S0,H,HB,E,RUNS,R,N,tokens,AUM:32300};
+  }
+  stepView(s,i,a){
+    const m={
+      wait:{bg:'#F5F6F8',bd:'#CDD2DA',fg:'#A3AAB6',g:'',l:'대기',c:'#7A8394',nc:'#7A8394'},
+      run:{bg:'#EEF1F7',bd:'#16264A',fg:'#16264A',g:'',l:'실행 중',c:'#16264A',nc:'#141A24'},
+      done:{bg:'#16264A',bd:'#16264A',fg:'#FFFFFF',g:'✓',l:'완료',c:'#1B7F4B',nc:'#141A24'},
+      retry:{bg:'#FFF4D1',bd:'#D9A92E',fg:'#8A5E00',g:'↺',l:'반려 · 재시도',c:'#8A5E00',nc:'#141A24'},
+      fail:{bg:'#FDECEA',bd:'#B42318',fg:'#B42318',g:'!',l:'실패',c:'#B42318',nc:'#141A24'},
+      skip:{bg:'#FFFFFF',bd:'#E3E6EB',fg:'#CDD2DA',g:'–',l:'해당 없음',c:'#A3AAB6',nc:'#A3AAB6'},
+    }[s.s];
+    const warnNote=s.s==='retry'||s.s==='fail'||(s.note||'').includes('반려');
+    return {idx:String(i),n:i+1,name:a.name,desc:a.desc,inp:a.inp,out:a.out,model:a.model,tok:a.tok,
+      dotBg:m.bg,dotBd:m.bd,dotColor:m.fg,glyph:m.g,glyphOn:s.s!=='run'&&!!m.g,isRun:s.s==='run',stLabel:m.l,stColor:m.c,nameColor:m.nc,
+      time:s.s==='run'?'…':(s.t||''),hasAtt:(s.att||1)>1,attTxt:(s.att||1)+'회 시도',note:s.note||'',hasNote:!!s.note,
+      noteBg:s.s==='fail'?'#FDECEA':warnNote?'#FFF8E3':'#E5F4EC',noteColor:s.s==='fail'?'#B42318':warnNote?'#8A5E00':'#1B7F4B',
+      open:this.state.exp===i,toggle:()=>this.setState(st=>({exp:st.exp===i?null:i}))};
+  }
+  renderVals(){
+    const d=this.D(), st=this.state, F=d.F;
+    const sh=st.applied||d.S0;
+    const fmt=(v,dg=1,u='%')=>{ if(v==null) return '—'; const r=+v.toFixed(dg); return (r>0?'+':r<0?'−':'')+Math.abs(r).toFixed(dg)+u; };
+    const col=v=>v==null?'#7A8394':v>0.00001?'#D23F31':v<-0.00001?'#1E5BD8':'#4A5363';
+    const dg=k=>F[k].u==='%p'?2:1;
+    const go=s=>()=>this.setState({screen:s,calc:null});
+    const oc=k=>()=>this.setState({calc:k});
+    const hs=d.H.map(h=>{ const parts=h.fac.map(([k,b])=>({k,b,c:b*sh[k]})); const r=parts.reduce((a,p)=>a+p.c,0); return {...h,parts,r,c:h.w*r/100}; });
+    const total=hs.reduce((a,h)=>a+h.c,0);
+    const fc=d.FK.map(k=>{ const b=d.H.reduce((a,h)=>a+h.w*((h.fac.find(f=>f[0]===k)||[0,0])[1])/100,0); return {k,b,c:b*sh[k]}; });
+    const SE=0.141;
+    const lo=fc.reduce((a,f)=>a+f.c-1.96*SE*Math.abs(f.c),0), hi=fc.reduce((a,f)=>a+f.c+1.96*SE*Math.abs(f.c),0);
+    const amt=Math.round(total/100*d.AUM/10)*10;
+    const amountTxt=(amt<0?'−':amt>0?'+':'')+Math.abs(amt).toLocaleString('en-US')+'억 원';
+    const totalTxt=fmt(total), rangeTxt=fmt(lo)+' ~ '+fmt(hi);
+    const fxC=fc.find(f=>f.k==='USDKRW').c, fxShare=Math.round(fxC/total*100);
+    const semiShare=Math.round((hs[0].c+hs[4].c)/total*100);
+    const hedges=[];
+    if(total<0&&fxShare>=30) hedges.push({t:'달러 노출 환헤지 비율 상향',why:'환율 팩터가 손실의 '+fxShare+'% 기여',rule:'환율 팩터 기여 ≥ 손실의 30%',open:oc('fc:USDKRW')});
+    if(total<0&&semiShare>=40) hedges.push({t:'반도체 업종 비중 축소 · 분산',why:'반도체 업종이 손실의 '+semiShare+'% 기여',rule:'단일 업종 기여 ≥ 손실의 40%',open:oc('h:h1')});
+
+    // calc panel
+    let cd=null;
+    if(st.calc){
+      const cell=(v,c,a,w)=>({v,c:c||'#141A24',a:a||'right',w:w||400});
+      const L=v=>cell(v,'#141A24','left',600);
+      const srcs=[{n:'FRED · DGS10, SP500',d:'2026-10-13'},{n:'한국은행 ECOS · 원/달러, 국고채 3년',d:'2026-10-13'},{n:'공공데이터포털 주식시세 · KOSPI, 업종지수',d:'2026-10-13'}];
+      const hd=a=>a.map((v,i)=>({v,a:i===0?'left':'right'}));
+      const G4='minmax(0,1.5fr) 0.9fr 0.9fr 0.9fr';
+      const facRows=fc.map(f=>[L(F[f.k].n),cell(f.b.toFixed(3)),cell(fmt(sh[f.k],dg(f.k),F[f.k].u)),cell(fmt(f.c,2,'%p'),col(f.c),'right',700)]);
+      const k=st.calc;
+      const id='c7f2a91e-4b0d-4e1a-9f3c-2d81b6e0a514';
+      if(k==='pnl'||k==='model'||k==='amt'){
+        cd={title:k==='amt'?'예상 손익 금액':k==='model'?'팩터 모델 추정':'포트폴리오 예상 손익',value:k==='amt'?amountTxt:totalTxt,color:col(total),
+          sub:k==='amt'?'운용자산 3조 2,300억 원 기준 · 20영업일':amountTxt+' · 20영업일 · 가상 모델 포트폴리오 A',
+          formula:k==='amt'?'금액 = ΔP × AUM\n= '+totalTxt+' × 32,300억 원':'ΔRᵢ = Σₖ βᵢₖ · Δfₖ\nΔP = Σᵢ wᵢ · ΔRᵢ = Σₖ (Σᵢ wᵢβᵢₖ) · Δfₖ',
+          cols:hd(['팩터','포트폴리오 β','충격값','기여']),grid:G4,rows:facRows,
+          note:'포트폴리오 β = Σᵢ wᵢ·βᵢₖ. 자산별 베타는 2021-10-01 ~ 2026-09-30 일별 수익률 OLS 회귀로 추정했습니다.',srcs,id};
+      } else if(k==='range'){
+        cd={title:'추정 범위 (95%)',value:rangeTxt,color:'#141A24',sub:'베타 표준오차를 반영한 상·하한',formula:'기여ₖ(하한, 상한) = (β ∓ 1.96·SE) · Δfₖ\n범위 = Σₖ 기여ₖ',
+          cols:hd(['팩터','β','SE','하한 ~ 상한']),grid:'minmax(0,1.3fr) 0.7fr 0.7fr 1.3fr',
+          rows:fc.map(f=>{ const e=1.96*SE*Math.abs(f.c); return [L(F[f.k].n),cell(f.b.toFixed(3)),cell((Math.abs(f.b)*SE).toFixed(3)),cell(fmt(f.c-e,2,'')+' ~ '+fmt(f.c+e,2,''),'#4A5363')]; }),
+          note:'SE는 factor_beta 테이블의 std_err를 비중 가중한 값입니다.',srcs,id};
+      } else if(k==='reg'){
+        cd={title:'과거 유사 국면 추정',value:'−4.9%',color:'#1E5BD8',sub:'유사도 상위 5개 구간의 실제 손익 중앙값',formula:'pnlⱼ = Σᵢ wᵢ · Σₖ βᵢₖ · Δfₖ⁽ʲ⁾\n추정 = median(pnl₁ … pnl₅)',
+          cols:hd(['구간','유사도','실제 손익']),grid:'minmax(0,1.8fr) 0.6fr 0.8fr',
+          rows:d.R.map(r=>[cell(r.p,'#141A24','left'),cell(r.s.toFixed(2)),cell(fmt(r.pnl),col(r.pnl),'right',700)]),
+          note:'20영업일 롤링 구간의 팩터 변화 벡터를 z-score 표준화한 뒤 시나리오 벡터와 코사인 유사도로 비교했습니다.',srcs,id:'9a40e6d2-71c3-4f88-b0e5-6c1d2a7f3b90'};
+      } else if(k.startsWith('h:')){
+        const h=hs.find(x=>x.id===k.slice(2));
+        cd={title:h.name,value:fmt(h.r),color:col(h.r),sub:'비중 '+h.w.toFixed(1)+'% · 포트폴리오 기여 '+fmt(h.c,2,'%p'),formula:'ΔR = Σₖ βₖ · Δfₖ\n기여 = w × ΔR = '+h.w.toFixed(1)+'% × '+fmt(h.r,2,'%'),
+          cols:hd(['팩터','β','충격값','기여']),grid:G4,
+          rows:h.parts.map(p=>[L(F[p.k].n),cell(p.b.toFixed(2)),cell(fmt(sh[p.k],dg(p.k),F[p.k].u)),cell(fmt(p.c,2,'%'),col(p.c),'right',700)]),
+          note:'통화 '+h.cur+' · 기준통화 USD 환산 손익입니다. 원화 자산은 원/달러 상승 시 환산 손실이 발생합니다.',srcs,id:id+' / '+h.id};
+      } else if(k.startsWith('fc:')){
+        const fk=k.slice(3), f=fc.find(x=>x.k===fk);
+        cd={title:F[fk].n+' 팩터 기여',value:fmt(f.c,2,'%p'),color:col(f.c),sub:'손실의 '+Math.round(f.c/total*100)+'%',formula:'기여ₖ = Σᵢ wᵢ · βᵢₖ · Δfₖ',
+          cols:hd(['자산','비중','β','기여']),grid:G4,
+          rows:hs.filter(h=>h.fac.some(x=>x[0]===fk)).map(h=>{ const b=h.fac.find(x=>x[0]===fk)[1]; const c=h.w*b*sh[fk]/100; return [L(h.name),cell(h.w.toFixed(1)+'%'),cell(b.toFixed(2)),cell(fmt(c,2,'%p'),col(c),'right',700)]; }),
+          note:'헤지 규칙: 환율 팩터 기여가 손실의 30% 이상이면 환헤지 비율 상향을 제안합니다.',srcs,id};
+      } else if(k.startsWith('f:')){
+        const fk=k.slice(2), u=F[fk].u, v=sh[fk];
+        cd={title:F[fk].n+' 충격값',value:fmt(v,dg(fk),u),color:col(v),sub:'근거: '+F[fk].basis,formula:'충격값 = median(Δf⁽ʲ⁾), j = 유사 국면 상위 5\n과거 최대 대비 = |충격값| / '+F[fk].hist+u,
+          cols:hd(['구간','유사도','당시 변화']),grid:'minmax(0,1.8fr) 0.6fr 0.8fr',
+          rows:d.R.map(r=>[cell(r.p,'#141A24','left'),cell(r.s.toFixed(2)),cell(fmt(v*r.m,dg(fk),u),'#4A5363')]),
+          note:'과거 20영업일 최대 변동폭 ±'+F[fk].hist+u+' 대비 '+Math.round(Math.abs(v)/F[fk].hist*100)+'% 위치입니다.',srcs,id:'3e5b81c0-2d9a-4c07-a6f1-8b4e0d7c2a19'};
+      }
+    }
+
+    // timeline
+    const steps=(st.steps||d.done).map((s,i)=>this.stepView(s,i,d.agents[i]));
+    const curIdx=(st.steps||[]).findIndex(s=>s.s==='run');
+    const curStep=curIdx>=0?d.agents[curIdx].name+' — '+d.agents[curIdx].desc+((st.steps[curIdx].att||1)>1?' (2차 시도)':''):'준비 중';
+    const elapsedTxt=st.running?((st.now-st.t0)/1000).toFixed(1)+'s':'총 '+(st.mode==='failed'?'31.2s':st.totalTime);
+
+    // scenario draft
+    const plain=k=>(sh[k]>0?'+':'')+sh[k].toFixed(dg(k));
+    const draft=st.draft||Object.fromEntries(d.FK.map(k=>[k,plain(k)]));
+    const parse=s=>{ const n=parseFloat(String(s).replace('−','-').replace('+','').trim()); return isNaN(n)?null:n; };
+    let invalid=false, dirty=false, overHist=false;
+    const shockRows=d.FK.map(k=>{
+      const p=parse(draft[k]); if(p==null) invalid=true; const changed=p!=null&&Math.abs(p-sh[k])>1e-9; if(changed) dirty=true;
+      const v=p==null?sh[k]:p, pct=Math.abs(v)/F[k].hist*100, over=pct>100; if(Math.abs(sh[k])>F[k].hist) overHist=true;
+      return {id:k,name:F[k].n,val:draft[k],unit:F[k].u,basis:F[k].basis,open:oc('f:'+k),color:col(v),
+        inputBd:p==null?'#B42318':changed?'#D9A92E':'#CDD2DA',rowBg:changed?'#FFFCF2':'#FFFFFF',
+        posW:Math.min(pct,100)+'%',barColor:over?'#D9A92E':'#6F84B5',posTxt:over?'최대 초과 '+Math.round(pct)+'%':Math.round(pct)+'%',posColor:over?'#8A5E00':'#4A5363',
+        onChange:e=>{ const val=e.target.value; this.setState(s=>({draft:{...(s.draft||draft),[k]:val}})); }};
+    });
+
+    const sorted=hs.slice().sort((a,b)=>a.r-b.r), maxAbs=Math.max(...hs.map(h=>Math.abs(h.r)),0.01);
+    const bars=sorted.map(h=>({name:h.name,txt:fmt(h.r),color:col(h.r),open:oc('h:'+h.id),lw:h.r<0?(Math.abs(h.r)/maxAbs*100)+'%':'0%',rw:h.r>0?(h.r/maxAbs*100)+'%':'0%'}));
+    const top5=hs.slice().sort((a,b)=>a.c-b.c).slice(0,5).map(h=>({name:h.name,w:h.w.toFixed(1)+'%',r:fmt(h.r),rc:col(h.r),c:fmt(h.c,2,'%p'),cc:col(h.c),open:oc('h:'+h.id)}));
+    const regimes=d.R.map(r=>({p:r.p,tag:r.tag,s:r.s.toFixed(2),sw:(r.s*100)+'%',pnl:fmt(r.pnl),color:col(r.pnl),open:oc('reg')}));
+
+    // path nodes
+    const nb={}, nsh={}, selN={};
+    Object.keys(d.N).forEach(k=>{ const low=d.N[k].conf==='low', on=st.node===k;
+      nb[k]=on?'2px solid #16264A':low?'1px dashed #A3AAB6':'1px solid #CDD2DA'; nsh[k]=on?'0 0 0 3px rgba(22,38,74,0.12)':'none'; selN[k]=()=>this.setState({node:k}); });
+    const nd=d.N[st.node], cm={high:['확신도 높음','#16264A','#FFFFFF','solid','#16264A'],mid:['확신도 중간','#E4E9F2','#2A3F6E','solid','#E4E9F2'],low:['확신도 낮음','#FFFFFF','#7A8394','dashed','#A3AAB6']}[nd.conf];
+    const selNode={t:nd.t,layer:nd.layer,dir:nd.dir,ev:nd.ev,evCount:nd.ev.length,isLow:nd.conf==='low',confTxt:cm[0],cbg:cm[1],cfg:cm[2],cbs:cm[3],cbd:cm[4]};
+
+    // events
+    const cmap={all:'전체',US:'미국',KR:'한국',EU:'EU',CN:'중국'};
+    const chip=(on,l,fn)=>({l,onClick:fn,bg:on?'#16264A':'#FFFFFF',color:on?'#FFFFFF':'#4A5363',bd:on?'#16264A':'#CDD2DA'});
+    const countryChips=Object.keys(cmap).map(k=>chip(st.country===k,cmap[k],()=>this.setState({country:k})));
+    const typeChips=['all','관세','금리','규제'].map(k=>chip(st.type===k,k==='all'?'전체':k,()=>this.setState({type:k})));
+    const openMain=()=>{ this.tm.forEach(clearTimeout); clearInterval(this.iv); this.setState({screen:'s3',mode:'done',steps:null,running:false,retried:true,runEntry:'event',runTitle:'미국 반도체 수입품 관세 부과 발표 (관세율 25%)',tab:'path',calc:null}); };
+    const events=d.E.filter(e=>(st.country==='all'||e.c===st.country)&&(st.type==='all'||e.type===st.type)).map(e=>({...e,hasLast:e.last!=null,lastTxt:fmt(e.last),lastColor:col(e.last),openLast:openMain,
+      analyze:()=>this.setState({screen:'s2',entry:'event',ev:e.id})}));
+    const openRun=r=>()=>{
+      this.tm.forEach(clearTimeout); clearInterval(this.iv);
+      const ent=r.entry==='시나리오'?'scenario':'event';
+      if(r.v==='fail') this.setState({screen:'s3',mode:'failed',steps:d.failed,running:false,retried:false,runEntry:'event',runTitle:r.sum,calc:null});
+      else this.setState({screen:'s3',mode:'done',running:false,retried:ent==='event',runEntry:ent,runTitle:r.sum,tab:ent==='event'?'path':'scen',calc:null,
+        steps:ent==='scenario'?d.done.map((s,i)=>i<2?{s:'skip',t:''}:i===5?{s:'done',t:'0.3s',note:'검증 통과 · 규칙 4/4'}:s):null});
+    };
+    const vmap={pass:['✓ 통과','#E5F4EC','#1B7F4B'],warn:['⚠ 경고','#FFF4D1','#8A5E00'],fail:['! 실패','#FDECEA','#B42318']};
+    const runs=d.RUNS.map(r=>({...r,pnlTxt:fmt(r.pnl),color:col(r.pnl),vTxt:vmap[r.v][0],vbg:vmap[r.v][1],vfg:vmap[r.v][2],open:openRun(r)}));
+    const selEv=d.E.find(e=>e.id===st.ev)||d.E[0];
+
+    // portfolio
+    const pList=st.pf==='pa'?d.H:d.HB;
+    const pal=['#16264A','#3B5185','#6F84B5','#A8B6D3','#D5DCEA','#8E96A3'];
+    const donut=(t,key)=>{ const g={}; pList.forEach(h=>g[h[key]]=(g[h[key]]||0)+h.w); const items=Object.entries(g).sort((a,b)=>b[1]-a[1]).map(([l,v],i)=>({l,v:v.toFixed(1)+'%',w:v,c:pal[i%pal.length]}));
+      let acc=0; const grad='conic-gradient('+items.map(i=>{ const s=acc; acc+=i.w; return i.c+' '+s+'% '+acc+'%'; }).join(',')+')'; return {t,items,grad}; };
+    const donuts=[donut('자산군','cls'),donut('통화','cur'),donut('업종','sec')];
+    const maxW=Math.max(...pList.map(h=>h.w));
+    const holdings=pList.slice().sort((a,b)=>b.w-a.w).map(h=>({...h,wTxt:h.w.toFixed(1)+'%',wBar:(h.w/maxW*100)+'%'}));
+
+    const cssText=':root {\n'+d.tokens.map(t=>'  '+t.v+': '+t.hex+';').join('\n')+'\n  --rp-font: "Pretendard Variable", Pretendard, sans-serif;\n  --rp-radius: 6px;\n  --rp-radius-card: 8px;\n}\n/* 수치: font-variant-numeric: tabular-nums; 클릭 가능 수치: text-decoration: underline dotted; text-underline-offset: 3–5px */';
+    const demo=[{s:'wait'},{s:'run'},{s:'done',t:'1.2s'},{s:'retry',t:'0.2s'},{s:'fail',t:'30.0s'},{s:'skip'}].map((s,i)=>this.stepView(s,i,{name:['대기','실행 중','완료','재시도','실패','건너뜀'][i]}));
+
+    const tabs=[['path','파급 경로'],['scen','시나리오'],['result','결과'],['report','보고서']].map(([k,l])=>({l,onClick:()=>this.setState({tab:k}),color:st.tab===k?'#16264A':'#7A8394',bd:st.tab===k?'#16264A':'transparent',dot:k==='scen'&&dirty}));
+    const navItems=[['s1','이벤트'],['s4','포트폴리오'],['s6','실행 이력']].map(([s,l])=>({l,onClick:go(s),color:st.screen===s?'#16264A':'#4A5363',bd:st.screen===s?'#16264A':'transparent'}));
+
+    return {
+      nav:navItems, spinner:React.createElement('span',{style:{width:12,height:12,border:'2px solid #C9D1E3',borderTopColor:'#16264A',borderRadius:'50%',display:'inline-block',animation:'rpspin .8s linear infinite'}}),
+      running:st.running, elapsedTxt, sysColor:st.screen==='sys'?'#16264A':'#7A8394',
+      goS1:go('s1'), goS3:go('s3'), goS6:go('s6'), goSys:go('sys'),
+      goS2:()=>this.setState({screen:'s2',calc:null}), goS2Scen:()=>this.setState({screen:'s2',entry:'scenario'}),
+      isS1:st.screen==='s1', isS2:st.screen==='s2', isS3:st.screen==='s3', isS4:st.screen==='s4', isS6:st.screen==='s6', isSys:st.screen==='sys',
+      countryChips, typeChips, events, noEvents:events.length===0,
+      recentRuns:runs.slice(0,3),
+      entryEv:{bg:st.entry==='event'?'#F8F9FC':'#FFFFFF',bd:st.entry==='event'?'2px solid #16264A':'1px solid #E3E6EB',radio:st.entry==='event'?'5px solid #16264A':'1.5px solid #CDD2DA'},
+      entrySc:{bg:st.entry==='scenario'?'#F8F9FC':'#FFFFFF',bd:st.entry==='scenario'?'2px solid #16264A':'1px solid #E3E6EB',radio:st.entry==='scenario'?'5px solid #16264A':'1.5px solid #CDD2DA'},
+      setEntryEvent:()=>this.setState({entry:'event'}), setEntryScen:()=>this.setState({entry:'scenario'}),
+      isEntryEvent:st.entry==='event', isEntryScen:st.entry==='scenario',
+      ev:st.ev, onEv:e=>this.setState({ev:e.target.value}), allEvents:d.E.map(e=>({id:e.id,label:e.country+' · '+e.title})), selEv,
+      scenText:st.scenText, onScen:e=>this.setState({scenText:e.target.value}),
+      exampleChips:['유가 30% 급등 + 원화 10% 약세','미국 금리 1%p 인상','반도체 업종 20% 하락'].map(l=>({l,onClick:()=>this.setState({scenText:l})})),
+      pfSel:st.pfSel, onPf:e=>this.setState({pfSel:e.target.value}), horizon:st.horizon, onHorizon:e=>this.setState({horizon:e.target.value.replace(/[^0-9]/g,'')}),
+      pipelineTxt:st.entry==='event'?'Event Analyst → Impact Mapper → Scenario Builder → Regime Finder → Risk Engine → Validator → Report Writer':'Scenario Builder → Regime Finder → Risk Engine → Validator → Report Writer',
+      startFromS2:()=>{ const ent=st.entry; this.startRun({entry:ent,patch:{tab:ent==='event'?'path':'scen',runId:'R-20261014-'+String(1000+Math.floor(Math.random()*8999)).slice(0,4),
+        runTitle:ent==='event'?selEv.title+' ('+selEv.key+')':(st.scenText||'유가 30% 급등 + 원화 10% 약세')}}); },
+      tlRef:this.tlRef, steps, showLoop:st.retried&&!!st.loop&&st.mode==='done', loopTop:st.loop?st.loop.top:0, loopH:st.loop?st.loop.h:0,
+      runId:st.runId, runTitle:st.runTitle, entryLabel:st.runEntry==='event'?'정책 이벤트':'직접 입력 시나리오',
+      isRunning:st.running, isFailed:!st.running&&st.mode==='failed', isDone:!st.running&&st.mode==='done', currentStepTxt:curStep,
+      retryRun:()=>this.startRun({entry:'event'}), rerun:()=>this.startRun({}),
+      openFailed:openRun(d.RUNS[6]),
+      oc:{pnl:oc('pnl'),amt:oc('amt'),range:oc('range'),reg:oc('reg'),model:oc('model')},
+      totalTxt, totalColor:col(total), amountTxt, rangeTxt, overHist,
+      downloadReport:()=>this.toast('보고서 파일을 생성했습니다 (데모)'),
+      tabs, tabPath:st.tab==='path', tabScen:st.tab==='scen', tabResult:st.tab==='result', tabReport:st.tab==='report',
+      tabTo:{scen:()=>this.setState({tab:'scen'})},
+      isScenEntry:st.runEntry==='scenario', isEventEntry:st.runEntry==='event',
+      nb, nsh, selN, selNode,
+      shockRows, invalid, notDirty:!dirty, dirtyOpacity:dirty?1:0.45, cantRecalc:!dirty||invalid, recalcBg:!dirty||invalid?'#A3AAB6':'#16264A',
+      resetDraft:()=>this.setState({draft:null}),
+      recalc:()=>{ if(!dirty||invalid) return; const ap={}; d.FK.forEach(k=>ap[k]=parse(draft[k])); const nid=st.runId.replace(/(-\d+)?$/,m=>m)+'-R';
+        this.startRun({from:3,done:'재계산 완료 · 새 실행 '+nid,patch:{applied:ap,draft:null,runId:nid,tab:'result'}}); },
+      bars, top5, regimes, hedges,
+      pf:st.pf, onPf4:e=>this.setState({pf:e.target.value}), donuts, holdings,
+      pfMeta:st.pf==='pa'?'기준통화 USD · 운용자산 3조 2,300억 원 상당 · 8개 자산 · 팩터 베타 추정 2021-10 ~ 2026-09':'기준통화 USD · 운용자산 2조 1,000억 원 상당 · 6개 자산 · 평균 듀레이션 7.4년',
+      runs,
+      tokens:d.tokens, cssText, stepDemo:demo,
+      copyCss:()=>{ try{ navigator.clipboard.writeText(cssText); }catch(e){} this.toast('CSS 변수를 복사했습니다'); },
+      calcOpen:!!cd, cd:cd||{}, closeCalc:()=>this.setState({calc:null}),
+      hasToast:!!st.toast, toast:st.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>
