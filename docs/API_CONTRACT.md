@@ -44,9 +44,11 @@
 
 `synthetic_data`가 `true`면 시계열 일부가 데모용 합성 데이터입니다. 상단 바에 "합성 데이터" 경고 배지를 상시 노출합니다.
 
-## GET `/api/events?country=US&type=tariff&days=30`
+## GET `/api/events?country=US&type=tariff&days=30&relevance=mid&limit=200`
 
-`country`: `US|KR|EU|CN` (생략 시 전체), `type`: `tariff|rate|regulation`, `days`: 7/30/90 (발표일 기준, 생략 시 전체).
+`country`: `US|KR|EU|CN` (생략 시 전체), `type`: `tariff|rate|regulation`, `days`: 7/30/90 (발표일 기준, 생략 시 전체), `relevance`: `high`(높음만) / `mid`(높음·중간; 미평가·예시 이벤트는 항상 포함), `limit` 기본 200.
+
+수집된 외국어 이벤트는 수집 직후 Claude가 한국어 제목·요약·유형·수치·관련성(`relevance`: high/mid/low)으로 구조화하며 원문 제목은 `title_orig`에 남습니다 (offline 모드에서는 영어 그대로, `relevance`=null).
 
 ```json
 [{
@@ -60,7 +62,8 @@
   "announced_at": "2026-10-01",
   "source": "Federal Register", "source_url": "https://…",
   "is_demo": false,
-  "last_run": {"run_id": "…", "portfolio_pnl": -3.8} 
+  "title_orig": "Adjusting Imports of Semiconductors …", "relevance": "high",
+  "last_run": {"run_id": "…", "portfolio_pnl": -3.8}
 }]
 ```
 

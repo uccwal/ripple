@@ -68,16 +68,22 @@ def _last_runs_by_event(s: Session) -> dict[str, Run]:
 
 
 @router.get("/events")
-def list_events(country: str | None = None, type: str | None = None, days: int | None = None, s: Session = Depends(get_session)):
+def list_events(country: str | None = None, type: str | None = None, days: int | None = None,
+                relevance: str | None = Query(None, description="high | mid | low — 이 등급 이상만"),
+                limit: int = Query(200, le=1000), s: Session = Depends(get_session)):
     q = select(PolicyEvent)
     if country:
         q = q.where(PolicyEvent.country == country)
+    if relevance in ("high", "mid"):
+        allowed = ["high"] if relevance == "high" else ["high", "mid"]
+        # 관련성 미평가(None)·예시 이벤트는 항상 포함
+        q = q.where((PolicyEvent.relevance.in_(allowed)) | (PolicyEvent.relevance.is_(None)) | (PolicyEvent.is_demo.is_(True)))
     if type:
         q = q.where(PolicyEvent.type == type)
     if days:
         q = q.where(PolicyEvent.announced_at >= date.today() - timedelta(days=days))
     last = _last_runs_by_event(s)
-    return [_event_view(e, last.get(e.event_id)) for e in s.scalars(q.order_by(PolicyEvent.announced_at.desc()))]
+    return [_event_view(e, last.get(e.event_id)) for e in s.scalars(q.order_by(PolicyEvent.announced_at.desc()).limit(limit))]
 
 
 @router.get("/events/{event_id}")
