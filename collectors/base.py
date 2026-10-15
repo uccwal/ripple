@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import logging
 import math
+import re
 import time
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
@@ -29,6 +30,14 @@ log = logging.getLogger("collectors")
 USER_AGENT = "RIPPLE-collector/0.1 (KIC AI agent competition entry; data collection for research/demo)"
 DEFAULT_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 RETRY_STATUSES = {429, 500, 502, 503, 504}
+
+
+_SECRET_PARAM = re.compile(r"((?:serviceKey|api_key|apiKey|key)=)[^&\s'\"]+", re.IGNORECASE)
+
+
+def redact(text: str) -> str:
+    """URL·오류 문구에 들어간 API 키를 가린다 (수집 보고서는 공개 화면에 표시된다)."""
+    return _SECRET_PARAM.sub(r"\1***", str(text))
 
 
 class CollectorError(RuntimeError):
@@ -64,7 +73,7 @@ def get(client: httpx.Client, url: str, params: Mapping[str, Any] | None = None,
                 continue
             if resp.status_code >= 400:  # 재시도 대상이 아닌 4xx, 또는 재시도를 다 쓴 5xx
                 snippet = resp.text[:200].replace("\n", " ")
-                raise CollectorError(f"HTTP {resp.status_code} from {resp.url}: {snippet!r}")
+                raise CollectorError(f"HTTP {resp.status_code} from {redact(str(resp.url))}: {snippet!r}")
             return resp
         except httpx.TransportError as exc:  # 연결·타임아웃 등
             last_exc = exc
@@ -73,7 +82,7 @@ def get(client: httpx.Client, url: str, params: Mapping[str, Any] | None = None,
             wait = backoff * (2 ** attempt)
             log.warning("%s: %s — %.1fs 후 재시도 (%d/%d)", type(exc).__name__, url, wait, attempt + 1, retries)
             time.sleep(wait)
-    raise CollectorError(f"요청 실패: {url} ({last_exc})") from last_exc
+    raise CollectorError(f"요청 실패: {redact(url)} ({redact(last_exc)})") from last_exc
 
 
 def get_json(client: httpx.Client, url: str, params: Mapping[str, Any] | None = None, **kw: Any) -> Any:

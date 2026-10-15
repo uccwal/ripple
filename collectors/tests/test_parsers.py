@@ -615,12 +615,16 @@ def test_kr_run_rss_fallback_fetches_pages_for_license(session):
 
 
 def test_kr_run_api_mode(session):
+    seen_starts: list[str] = []
+
     def handler(request):
-        assert request.url.params["serviceKey"] == "k" and request.url.params["startDate"] == "20250101"
+        assert request.url.params["serviceKey"] == "k"
+        seen_starts.append(request.url.params["startDate"])
         return httpx.Response(200, text=KR_API_XML)
 
     with base.make_client(transport=httpx.MockTransport(handler)) as c:
-        counts = korea_briefing.run(session, DateRange(date(2025, 1, 1), date(2025, 12, 31)), api_key="k", client=c)
+        counts = korea_briefing.run(session, DateRange(date(2025, 12, 25), date(2025, 12, 31)), api_key="k", client=c)
+    assert seen_starts == ["20251229", "20251226", "20251225"]  # 3일 창, 최신부터
     assert counts["mode"] == "data.go.kr API" and counts["events"] == 1
 
 
@@ -700,3 +704,29 @@ def test_run_all_list_runs_without_network(capsys):
     assert run_all.main(["--list"]) == 0
     out = capsys.readouterr().out
     assert "fred" in out and "FRED_API_KEY" in out and "federal_register" in out
+
+
+def test_kr_windows_split_three_days_inclusive():
+    w = korea_briefing.windows(date(2025, 4, 1), date(2025, 4, 8))
+    assert w == [(date(2025, 4, 6), date(2025, 4, 8)), (date(2025, 4, 3), date(2025, 4, 5)), (date(2025, 4, 1), date(2025, 4, 2))]
+    assert korea_briefing.windows(date(2025, 4, 8), date(2025, 4, 8)) == [(date(2025, 4, 8), date(2025, 4, 8))]
+
+
+def test_kr_fetch_api_uses_three_day_windows_and_dedupes(session):
+    calls: list[tuple[str, str, str]] = []
+
+    def handler(request):
+        p = request.url.params
+        calls.append((request.url.path, p["startDate"], p["endDate"]))
+        return httpx.Response(200, text=KR_API_XML)  # 모든 창에 같은 항목 → 중복 제거 확인
+
+    with base.make_client(transport=httpx.MockTransport(handler)) as c:
+        items = korea_briefing.fetch_api(c, "KEY", DateRange(date(2025, 4, 1), date(2025, 4, 7)))
+    assert [(s, e) for _, s, e in calls] == [("20250405", "20250407"), ("20250402", "20250404"), ("20250401", "20250401")]
+    assert all(path.endswith("/policyNewsService2/policyNewsList2") for path, _, _ in calls)
+    assert len(items) == len(korea_briefing.parse_press_release_xml(KR_API_XML)[0])
+
+
+def test_redact_hides_service_key_in_errors():
+    assert base.redact("HTTP 400 from https://x/y?serviceKey=abc%2Fdef&pageNo=1") == "HTTP 400 from https://x/y?serviceKey=***&pageNo=1"
+    assert base.redact("api_key=SECRET&file_type=json") == "api_key=***&file_type=json"

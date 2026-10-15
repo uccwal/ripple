@@ -48,14 +48,18 @@ API_URL = "https://apis.data.go.kr/1371000/pressReleaseService/pressReleaseList"
 # 포털의 '문화체육관광부_정책브리핑_정책뉴스_API'(데이터 15095335)는 policyNewsList2 오퍼레이션을 제공한다.
 # 키는 활용신청한 서비스에만 등록되므로 후보를 차례로 시도하고 처음 성공한 주소를 쓴다.
 # 환경 변수 KOREA_BRIEFING_API_URL 이 있으면 그 주소를 가장 먼저 시도한다 (포털 상세 화면의 End Point + 오퍼레이션).
+# 2026-10-15 배포 서버에서 확인: policyNewsService2/policyNewsList2 가 키를 인식한다 (다른 주소는 400/403).
+# 이 API 는 조회 기간이 3일을 넘으면 오류 98 THREE_DAYS_OVER_ERROR 를 돌려주므로 3일 창으로 나눠 받는다.
 API_CANDIDATES = [u for u in [
     __import__("os").getenv("KOREA_BRIEFING_API_URL"),
-    "https://apis.data.go.kr/1371000/policyNewsService/policyNewsList2",
     "https://apis.data.go.kr/1371000/policyNewsService2/policyNewsList2",
+    "https://apis.data.go.kr/1371000/policyNewsService/policyNewsList2",
     "https://apis.data.go.kr/1371000/policyNewsService_V2/policyNewsList2",
     "https://apis.data.go.kr/1371000/policyNewsService/policyNewsList",
     API_URL,
 ] if u]
+WINDOW_DAYS = 3  # 한 요청의 최대 조회 기간 (startDate~endDate, 양끝 포함)
+MAX_SPAN_DAYS = 400  # 전체 기간 수집 때도 이보다 오래된 보도자료는 받지 않는다 (3일 창 × 134회 상한)
 RSS_URL = "https://www.korea.kr/rss/pressrelease.xml"
 # korea.kr RSS 주소는 개편으로 바뀔 수 있어 후보를 차례로 시도한다 (첫 성공 사용). 전부 실패하면 '건너뜀'으로 보고.
 RSS_CANDIDATES = [RSS_URL, "https://www.korea.kr/rss/policy.xml", "https://www.korea.kr/rss/news.xml",
@@ -270,35 +274,53 @@ def select_and_convert(items: list[dict[str, Any]], rng: DateRange | None = None
 # HTTP
 # ----------------------------------------------------------------------------
 
+def windows(since: date, until: date, days: int = WINDOW_DAYS) -> list[tuple[date, date]]:
+    """[since, until] 을 최신 창부터 days 일(양끝 포함) 창으로 나눈다."""
+    out: list[tuple[date, date]] = []
+    end = until
+    while end >= since:
+        start = max(since, end - timedelta(days=days - 1))
+        out.append((start, end))
+        end = start - timedelta(days=1)
+    return out
+
+
 def fetch_api(client: httpx.Client, service_key: str, rng: DateRange) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
+    seen: set[str] = set()
     url = None
-    last_exc: Exception | None = None
     failures: list[str] = []
-    for page in range(1, MAX_PAGES + 1):
-        params = {"serviceKey": service_key, "startDate": base.yyyymmdd(rng.since), "endDate": base.yyyymmdd(rng.until),
-                  "pageNo": page, "numOfRows": PAGE_SIZE}
-        if url is None:
-            # 첫 페이지: 후보 주소를 차례로 시도
-            for cand in API_CANDIDATES:
-                try:
-                    resp = base.get(client, cand, params, retries=1)
-                    got, total = parse_press_release_xml(resp.text)
-                    url = cand
-                    log.info("정책브리핑 API 사용: %s", cand)
-                    break
-                except CollectorError as exc:
-                    last_exc = exc
-                    failures.append(f"{cand.rsplit('/', 2)[-2]}/{cand.rsplit('/', 1)[-1]} → {str(exc)[:140]}")
-                    log.warning("정책브리핑 API 실패 %s: %s", cand, str(exc)[:160])
+    since = max(rng.since, rng.until - timedelta(days=MAX_SPAN_DAYS))
+    if since != rng.since:
+        log.info("정책브리핑: 조회 시작일을 %s 로 제한 (최대 %d일)", since, MAX_SPAN_DAYS)
+    for w_start, w_end in windows(since, rng.until):
+        for page in range(1, MAX_PAGES + 1):
+            params = {"serviceKey": service_key, "startDate": base.yyyymmdd(w_start), "endDate": base.yyyymmdd(w_end),
+                      "pageNo": page, "numOfRows": PAGE_SIZE}
             if url is None:
-                raise CollectorError("정책브리핑 API 주소를 찾지 못함: " + " | ".join(failures))
-        else:
-            resp = base.get(client, url, params)
-            got, total = parse_press_release_xml(resp.text)
-        items.extend(got)
-        if not got or (total and len(items) >= total):
-            break
+                # 첫 요청: 후보 주소를 차례로 시도해 처음 성공한 주소를 쓴다
+                got, total = [], 0
+                for cand in API_CANDIDATES:
+                    try:
+                        resp = base.get(client, cand, params, retries=1)
+                        got, total = parse_press_release_xml(resp.text)
+                        url = cand
+                        log.info("정책브리핑 API 사용: %s", cand)
+                        break
+                    except CollectorError as exc:
+                        failures.append(f"{cand.rsplit('/', 2)[-2]}/{cand.rsplit('/', 1)[-1]} → {base.redact(exc)[:140]}")
+                        log.warning("정책브리핑 API 실패 %s: %s", cand, base.redact(exc)[:160])
+                if url is None:
+                    raise CollectorError("정책브리핑 API 주소를 찾지 못함: " + " | ".join(failures))
+            else:
+                resp = base.get(client, url, params)
+                got, total = parse_press_release_xml(resp.text)
+            new = [it for it in got if (it.get("url") or it.get("title")) not in seen]
+            for it in new:
+                seen.add(it.get("url") or it.get("title"))
+            items.extend(new)
+            if not got or len(got) < PAGE_SIZE or (total and page * PAGE_SIZE >= total):
+                break
     return items
 
 
