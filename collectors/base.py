@@ -144,6 +144,12 @@ def parse_date(raw: Any) -> date | None:
             return date(int(s[:4]), int(s[4:6]), int(s[6:8]))
         except ValueError:
             return None
+    m = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})", s)  # MM/DD/YYYY HH24:MI:SS (정책브리핑 정책뉴스 API ApproveDate)
+    if m:
+        try:
+            return date(int(m.group(3)), int(m.group(1)), int(m.group(2)))
+        except ValueError:
+            return None
     s10 = s[:10].replace(".", "-").replace("/", "-")
     try:
         return date.fromisoformat(s10)

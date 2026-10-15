@@ -711,6 +711,8 @@ def test_parse_date_accepts_14_digit_timestamp():
     assert base.parse_date("20261014") == date(2026, 10, 14)
     assert base.parse_date("2026-10-14 10:30:00.0") == date(2026, 10, 14)
     assert base.parse_date("2026101") is None
+    assert base.parse_date("10/14/2026 10:30:00") == date(2026, 10, 14)  # 정책뉴스 API ApproveDate 형식
+    assert base.parse_date("2026/10/14") == date(2026, 10, 14)
 
 
 def test_kr_parse_falls_back_to_any_date_like_tag_and_reports_tags():
