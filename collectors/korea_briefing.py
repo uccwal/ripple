@@ -45,6 +45,13 @@ log = logging.getLogger("collectors.korea_briefing")
 REQUIRED_KEY = None  # 키가 있으면 공공데이터포털 API, 없으면 RSS 폴백 (건너뛰지 않음)
 DEFAULT_DAYS = 365
 API_URL = "https://apis.data.go.kr/1371000/pressReleaseService/pressReleaseList"
+# 포털의 '문화체육관광부_정책브리핑_정책뉴스_API'(데이터 15095335)는 policyNewsList2 오퍼레이션을 제공한다.
+# 키는 활용신청한 서비스에만 등록되므로 후보를 차례로 시도하고 처음 성공한 주소를 쓴다.
+API_CANDIDATES = [
+    "https://apis.data.go.kr/1371000/policyNewsService/policyNewsList2",
+    "https://apis.data.go.kr/1371000/policyNewsService/policyNewsList",
+    API_URL,
+]
 RSS_URL = "https://www.korea.kr/rss/pressrelease.xml"
 # korea.kr RSS 주소는 개편으로 바뀔 수 있어 후보를 차례로 시도한다 (첫 성공 사용). 전부 실패하면 '건너뜀'으로 보고.
 RSS_CANDIDATES = [RSS_URL, "https://www.korea.kr/rss/policy.xml", "https://www.korea.kr/rss/news.xml",
@@ -261,11 +268,28 @@ def select_and_convert(items: list[dict[str, Any]], rng: DateRange | None = None
 
 def fetch_api(client: httpx.Client, service_key: str, rng: DateRange) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
+    url = None
+    last_exc: Exception | None = None
     for page in range(1, MAX_PAGES + 1):
         params = {"serviceKey": service_key, "startDate": base.yyyymmdd(rng.since), "endDate": base.yyyymmdd(rng.until),
                   "pageNo": page, "numOfRows": PAGE_SIZE}
-        resp = base.get(client, API_URL, params)
-        got, total = parse_press_release_xml(resp.text)
+        if url is None:
+            # 첫 페이지: 후보 주소를 차례로 시도
+            for cand in API_CANDIDATES:
+                try:
+                    resp = base.get(client, cand, params, retries=1)
+                    got, total = parse_press_release_xml(resp.text)
+                    url = cand
+                    log.info("정책브리핑 API 사용: %s", cand)
+                    break
+                except CollectorError as exc:
+                    last_exc = exc
+                    log.warning("정책브리핑 API 실패 %s: %s", cand, str(exc)[:160])
+            if url is None:
+                raise CollectorError(f"정책브리핑 API 주소를 찾지 못함: {last_exc}")
+        else:
+            resp = base.get(client, url, params)
+            got, total = parse_press_release_xml(resp.text)
         items.extend(got)
         if not got or (total and len(items) >= total):
             break
