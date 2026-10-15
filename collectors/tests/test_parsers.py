@@ -706,6 +706,23 @@ def test_run_all_list_runs_without_network(capsys):
     assert "fred" in out and "FRED_API_KEY" in out and "federal_register" in out
 
 
+def test_parse_date_accepts_14_digit_timestamp():
+    assert base.parse_date("20261014103000") == date(2026, 10, 14)
+    assert base.parse_date("20261014") == date(2026, 10, 14)
+    assert base.parse_date("2026-10-14 10:30:00.0") == date(2026, 10, 14)
+    assert base.parse_date("2026101") is None
+
+
+def test_kr_parse_falls_back_to_any_date_like_tag_and_reports_tags():
+    xml = """<response><header><resultCode>0</resultCode></header><body><totalCount>1</totalCount>
+      <NewsItem><NewsItemId>1</NewsItemId><Title>관세 대응 점검</Title><MinisterCode>기획재정부</MinisterCode>
+      <RegDt>20261014103000</RegDt><OriginalUrl>https://x/1</OriginalUrl><DataContents>공공누리 제1유형</DataContents></NewsItem>
+    </body></response>"""
+    items, total = korea_briefing.parse_press_release_xml(xml)
+    assert total == 1 and items[0]["date"] == date(2026, 10, 14)
+    assert "RegDt" in items[0]["_tags"] and "Title" in items[0]["_tags"]
+
+
 def test_kr_windows_split_three_days_inclusive():
     w = korea_briefing.windows(date(2025, 4, 1), date(2025, 4, 8))
     assert w == [(date(2025, 4, 6), date(2025, 4, 8)), (date(2025, 4, 3), date(2025, 4, 5)), (date(2025, 4, 1), date(2025, 4, 2))]

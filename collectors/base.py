@@ -138,7 +138,8 @@ def parse_date(raw: Any) -> date | None:
     s = str(raw).strip()
     if not s:
         return None
-    if len(s) == 8 and s.isdigit():
+    if len(s) >= 8 and s[:8].isdigit() and (len(s) == 8 or not s[8:9].isdigit() or s.isdigit()):
+        # YYYYMMDD, YYYYMMDDHHMMSS(정책뉴스 API), "YYYYMMDD ..." 
         try:
             return date(int(s[:4]), int(s[4:6]), int(s[6:8]))
         except ValueError:

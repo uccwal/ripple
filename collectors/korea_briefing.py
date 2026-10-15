@@ -163,6 +163,25 @@ def make_event_id(url: str | None, title: str, d: date | None) -> str:
 # 파싱 (HTTP 와 분리)
 # ----------------------------------------------------------------------------
 
+def _child_date(node: ET.Element, *names: str) -> date | None:
+    """이름 후보 순서대로 날짜를 찾고, 없으면 이름에 'date'/'dt'/'일자' 가 들어간 아무 태그나 파싱되는 첫 값을 쓴다."""
+    for n in names:
+        d = base.parse_date(_child_text(node, n))
+        if d:
+            return d
+    for child in node.iter():
+        tag = child.tag.split("}")[-1].lower()
+        if child is not node and ("date" in tag or tag.endswith("dt") or "일자" in tag):
+            d = base.parse_date(child.text)
+            if d:
+                return d
+    return None
+
+
+def child_tags(node: ET.Element) -> list[str]:
+    return sorted({c.tag.split("}")[-1] for c in node.iter() if c is not node})
+
+
 def _child_text(node: ET.Element, *names: str) -> str:
     """태그 이름을 대소문자 구분 없이 찾는다 (NewsItemId / newsItemId 등)."""
     wanted = {n.lower() for n in names}
@@ -199,7 +218,8 @@ def parse_press_release_xml(text: str) -> tuple[list[dict[str, Any]], int]:
             "body": strip_html(body_html),
             "ministry": _child_text(node, "MinisterCode", "ministerCode", "minister", "ministry", "deptName", "orgName"),
             "url": _child_text(node, "OriginalUrl", "originalUrl", "url", "link"),
-            "date": base.parse_date(_child_text(node, "ApproveDate", "approveDate", "pubDate", "regDate", "ModifyDate")),
+            "date": _child_date(node, "ApproveDate", "approveDate", "pubDate", "regDate", "ModifyDate", "EmbargoDate", "newsDate", "regDt"),
+            "_tags": child_tags(node),
             "license": _child_text(node, "Kogl", "kogl", "License", "license", "Copyright", "copyright", "koglType"),
         })
     return items, int(total)
@@ -385,7 +405,13 @@ def run(session: Session, rng: DateRange, *, api_key: str | None = None,
     events, skipped = select_and_convert(items, rng)
     n = base.upsert_events(session, events)
     log.info("정책브리핑 [%s]: 항목 %d건 → 이벤트 %d건, 건너뜀 %s", mode, len(items), n, skipped)
-    return {"mode": mode, "items": len(items), "events": n, **{k: v for k, v in skipped.items() if v}}
+    out: dict[str, Any] = {"mode": mode, "items": len(items), "events": n, **{k: v for k, v in skipped.items() if v}}
+    if items and n == 0:
+        # 전부 걸러졌으면 응답 구조를 보고서에 남겨 화면에서 바로 원인을 볼 수 있게 한다
+        out["sample_tags"] = ", ".join(items[0].get("_tags") or [])[:300]
+        out["sample_ministry"] = (items[0].get("ministry") or "")[:40]
+        out["sample_title"] = (items[0].get("title") or "")[:60]
+    return out
 
 
 def main(argv: list[str] | None = None) -> None:
