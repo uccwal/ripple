@@ -67,6 +67,7 @@ RSS_CANDIDATES = [RSS_URL, "https://www.korea.kr/rss/policy.xml", "https://www.k
 SOURCE = "대한민국 정책브리핑 (korea.kr)"
 PAGE_SIZE = 100
 MAX_PAGES = 50
+BODY_MAX_CHARS = 6000  # 기사 본문 저장 상한 (키워드·공공누리 판정에는 충분)
 MAX_PAGE_FETCH = 40  # RSS 폴백에서 공공누리 확인을 위해 받아 보는 기사 페이지 상한
 
 # 부처 목록 (편집 가능). 2025~26년 정부조직 개편으로 명칭이 바뀐 부처는 신·구 명칭을 함께 둔다.
@@ -215,7 +216,7 @@ def parse_press_release_xml(text: str) -> tuple[list[dict[str, Any]], int]:
         items.append({
             "title": strip_html(title),
             "subtitle": strip_html(_child_text(node, "SubTitle1", "subTitle1", "subtitle")),
-            "body": strip_html(body_html),
+            "body": strip_html(body_html)[:BODY_MAX_CHARS],  # 메모리 보호 (Render 무료 인스턴스 512MB)
             "ministry": _child_text(node, "MinisterCode", "ministerCode", "minister", "ministry", "deptName", "orgName"),
             "url": _child_text(node, "OriginalUrl", "originalUrl", "url", "link"),
             "date": _child_date(node, "ApproveDate", "approveDate", "pubDate", "regDate", "ModifyDate", "EmbargoDate", "newsDate", "regDt"),
@@ -305,15 +306,15 @@ def windows(since: date, until: date, days: int = WINDOW_DAYS) -> list[tuple[dat
     return out
 
 
-def fetch_api(client: httpx.Client, service_key: str, rng: DateRange) -> list[dict[str, Any]]:
-    items: list[dict[str, Any]] = []
-    seen: set[str] = set()
+def iter_api_windows(client: httpx.Client, service_key: str, rng: DateRange):
+    """3일 창마다 (창, 항목 목록) 을 차례로 돌려준다. 호출자가 창 단위로 바로 적재하면 메모리에 전체 기간을 쌓지 않는다."""
     url = None
     failures: list[str] = []
     since = max(rng.since, rng.until - timedelta(days=MAX_SPAN_DAYS))
     if since != rng.since:
         log.info("정책브리핑: 조회 시작일을 %s 로 제한 (최대 %d일)", since, MAX_SPAN_DAYS)
     for w_start, w_end in windows(since, rng.until):
+        items: list[dict[str, Any]] = []
         for page in range(1, MAX_PAGES + 1):
             params = {"serviceKey": service_key, "startDate": base.yyyymmdd(w_start), "endDate": base.yyyymmdd(w_end),
                       "pageNo": page, "numOfRows": PAGE_SIZE}
@@ -335,12 +336,22 @@ def fetch_api(client: httpx.Client, service_key: str, rng: DateRange) -> list[di
             else:
                 resp = base.get(client, url, params)
                 got, total = parse_press_release_xml(resp.text)
-            new = [it for it in got if (it.get("url") or it.get("title")) not in seen]
-            for it in new:
-                seen.add(it.get("url") or it.get("title"))
-            items.extend(new)
+            items.extend(got)
             if not got or len(got) < PAGE_SIZE or (total and page * PAGE_SIZE >= total):
                 break
+        yield (w_start, w_end), items
+
+
+def fetch_api(client: httpx.Client, service_key: str, rng: DateRange) -> list[dict[str, Any]]:
+    """전체 기간의 항목을 한 목록으로 (테스트·소량 조회용). 대량 수집은 run() 처럼 창 단위로 적재한다."""
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for _, got in iter_api_windows(client, service_key, rng):
+        for it in got:
+            key = it.get("url") or it.get("title")
+            if key not in seen:
+                seen.add(key)
+                items.append(it)
     return items
 
 
@@ -378,39 +389,65 @@ def fetch_rss(client: httpx.Client, *, fetch_pages: bool = True) -> list[dict[st
     return items
 
 
+def _merge_skipped(total: dict[str, int], part: dict[str, int]) -> None:
+    for k, v in part.items():
+        total[k] = total.get(k, 0) + v
+
+
 def run(session: Session, rng: DateRange, *, api_key: str | None = None,
         client: httpx.Client | None = None, **_: Any) -> dict[str, Any]:
     key = api_key or settings.data_go_kr_api_key
     own = client is None
     client = client or base.make_client()
+    n_items = n_events = 0
+    skipped: dict[str, int] = {}
+    sample: dict[str, Any] | None = None
+    seen_ids: set[str] = set()  # 창 경계에 걸친 같은 기사를 두 번 세지 않는다
     try:
         if key:
             from .krx_prices import normalize_service_key
             mode = "data.go.kr API"
             try:
-                items = fetch_api(client, normalize_service_key(key), rng)
+                # 창(3일) 단위로 받아 바로 적재하고 버린다 — 1년치(수천 건) 본문을 메모리에 쌓지 않는다
+                for (w_start, w_end), items in iter_api_windows(client, normalize_service_key(key), rng):
+                    events, part = select_and_convert(items, rng)
+                    events = [e for e in events if e["event_id"] not in seen_ids]
+                    seen_ids.update(e["event_id"] for e in events)
+                    n_items += len(items)
+                    n_events += base.upsert_events(session, events)
+                    _merge_skipped(skipped, part)
+                    if sample is None and items:
+                        sample = items[0]
+                    session.commit()
+                    log.info("정책브리핑 %s~%s: 항목 %d → 이벤트 %d", w_start, w_end, len(items), len(events))
             except CollectorError as exc:
+                if n_items:
+                    raise  # 일부 창을 받은 뒤 실패하면 그대로 오류 보고 (RSS 폴백은 최근 자료만이라 섞지 않는다)
                 log.warning("보도자료 API 실패 (%s) — RSS 로 폴백", exc)
                 try:
                     mode, items = "RSS (API 실패 폴백)", fetch_rss(client)
                 except MissingApiKey as rss_exc:
                     # 두 경로 모두 실패: API 가 왜 실패했는지 보고서에 남겨 주소·키 문제를 화면에서 바로 알 수 있게 한다
                     raise MissingApiKey(f"{exc} // RSS 도 실패: {rss_exc}. 포털 상세 화면의 요청 주소를 KOREA_BRIEFING_API_URL 환경 변수로 지정하면 그 주소를 먼저 시도합니다.") from rss_exc
+                events, skipped = select_and_convert(items, rng)
+                n_items, n_events = len(items), base.upsert_events(session, events)
+                sample = items[0] if items else None
         else:
             log.info("DATA_GO_KR_API_KEY 없음 — korea.kr RSS 로 수집 (최근 자료만)")
             mode, items = "RSS", fetch_rss(client)
+            events, skipped = select_and_convert(items, rng)
+            n_items, n_events = len(items), base.upsert_events(session, events)
+            sample = items[0] if items else None
     finally:
         if own:
             client.close()
-    events, skipped = select_and_convert(items, rng)
-    n = base.upsert_events(session, events)
-    log.info("정책브리핑 [%s]: 항목 %d건 → 이벤트 %d건, 건너뜀 %s", mode, len(items), n, skipped)
-    out: dict[str, Any] = {"mode": mode, "items": len(items), "events": n, **{k: v for k, v in skipped.items() if v}}
-    if items and n == 0:
+    log.info("정책브리핑 [%s]: 항목 %d건 → 이벤트 %d건, 건너뜀 %s", mode, n_items, n_events, skipped)
+    out: dict[str, Any] = {"mode": mode, "items": n_items, "events": n_events, **{k: v for k, v in skipped.items() if v}}
+    if n_items and n_events == 0 and sample:
         # 전부 걸러졌으면 응답 구조를 보고서에 남겨 화면에서 바로 원인을 볼 수 있게 한다
-        out["sample_tags"] = ", ".join(items[0].get("_tags") or [])[:300]
-        out["sample_ministry"] = (items[0].get("ministry") or "")[:40]
-        out["sample_title"] = (items[0].get("title") or "")[:60]
+        out["sample_tags"] = ", ".join(sample.get("_tags") or [])[:300]
+        out["sample_ministry"] = (sample.get("ministry") or "")[:40]
+        out["sample_title"] = (sample.get("title") or "")[:60]
     return out
 
 
