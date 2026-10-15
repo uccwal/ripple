@@ -34,7 +34,7 @@ defineProps<{ event: EventSummary }>()
       <p class="m-0 mt-0.5 text-small text-ink-2">{{ event.summary }}</p>
     </div>
 
-    <div class="flex items-center justify-between rounded bg-bg px-3.5 py-2.5">
+    <div v-if="event.value_text" class="flex items-center justify-between rounded bg-bg px-3.5 py-2.5">
       <span class="text-caption font-normal text-ink-3">핵심 수치</span>
       <span class="tnum text-xl font-bold text-navy-900">{{ event.value_text }}</span>
     </div>
