@@ -29,6 +29,13 @@ export interface Meta {
   today_event_delta: number
   events_by_source: { source: string; count: number }[]
   synthetic_data: boolean
+  database: DatabaseInfo
+}
+
+/** DB 종류. sqlite 는 컨테이너 안 파일이라 재배포 때 초기화된다 */
+export interface DatabaseInfo {
+  dialect: string
+  persistent: boolean
 }
 
 /* ---------- /api/events ---------- */
@@ -460,6 +467,7 @@ export interface DataStatus {
   collect: CollectState
   admin_enabled: boolean
   daily_hour_utc: number | null
+  database: DatabaseInfo
 }
 
 /* ---------- POST /api/admin/collect ---------- */

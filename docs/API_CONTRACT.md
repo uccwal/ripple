@@ -245,9 +245,12 @@
   "collectors": [{"name": "fred", "description": "FRED → DGS10, DGS2, DXY_BROAD, WTI, (FED_TARGET_UPPER)", "required_key": "FRED_API_KEY", "key_present": true}],
   "collect": {"running": false, "started_at": "…", "finished_at": "…", "next_scheduled_at": "…", "error": null,
               "reports": [{"collector": "krx_prices", "status": "ok | skipped | error", "message": "…", "counts": {"KOSPI": 1662}}]},
-  "admin_enabled": true, "daily_hour_utc": 0
+  "admin_enabled": true, "daily_hour_utc": 0,
+  "database": {"dialect": "postgresql | sqlite", "persistent": true}
 }
 ```
+
+`database.persistent=false`(SQLite)면 컨테이너 재배포·재시작 때 모든 데이터가 지워진다. `/api/meta` 에도 같은 `database` 객체가 있다.
 
 시계열 품질 필드: `stale_bdays` = 최종 관측일 이후 지난 영업일 수, `coverage` = 기간 내 영업일 대비 관측 비율(0~1).
 `quality` 는 `synthetic`(합성) → `stale`(5영업일 초과 지연) → `gappy`(커버리지 85% 미만) → `ok` 순으로 판정하며 값이 없으면 `empty`.

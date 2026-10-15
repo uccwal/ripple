@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from .. import collect, graph, runner
 from ..config import settings
-from ..db import get_session
+from ..db import engine as db_engine, get_session
 from ..engine.catalog import FACTOR_BY_ID
 from ..engine.risk import ENGINE_VERSION
 from ..models.tables import CalcLog, Holding, PolicyEvent, Portfolio, Run, Series, SeriesValue
@@ -27,6 +27,12 @@ COUNTRY_NAME = {"US": "미국", "KR": "한국", "EU": "EU", "CN": "중국", "JP"
 
 
 # ------------------------------------------------------------------ meta
+
+def database_info() -> dict:
+    """DB 종류. SQLite 는 컨테이너 안 파일이라 재배포·재시작 때 사라진다 (Render 는 DATABASE_URL 로 Postgres 를 붙여야 유지)."""
+    dialect = db_engine.dialect.name
+    return {"dialect": dialect, "persistent": dialect != "sqlite"}
+
 
 @router.get("/meta")
 def meta(s: Session = Depends(get_session)):
@@ -43,6 +49,7 @@ def meta(s: Session = Depends(get_session)):
         "today_event_count": today_cnt, "today_event_delta": today_cnt - yday_cnt,
         "events_by_source": [{"source": src, "count": c} for src, c in sources],
         "synthetic_data": synthetic,
+        "database": database_info(),
     }
 
 
@@ -427,4 +434,5 @@ def data_status(s: Session = Depends(get_session)):
         "series": series, "events": events, "collectors": collectors,
         "collect": collect_status(), "admin_enabled": bool(settings.admin_token),
         "daily_hour_utc": settings.collect_daily_hour_utc,
+        "database": database_info(),
     }

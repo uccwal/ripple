@@ -46,6 +46,12 @@ def load_events(s) -> int:
 
 
 def load_synthetic(s, force: bool) -> int:
+    """합성 시계열 적재. 이미 실제 수집 데이터가 있는 DB 에는 (force 가 아니면) 새 시리즈라도 합성을 넣지 않는다 —
+    팩터를 추가한 뒤 재배포해도 '합성 데이터' 배지가 다시 뜨지 않게 하고, 빈 시리즈는 수집기가 전체 기간으로 채운다."""
+    if not force:
+        has_real = s.scalar(select(func.count()).select_from(Series).where(~Series.source.like("SYNTHETIC%")))
+        if has_real:
+            return 0
     series = synthetic.generate()
     specs = {sid: (name, unit) for sid, name, unit, _ in synthetic.FACTOR_SPECS + synthetic.ASSET_SPECS}
     now = utcnow()

@@ -11,6 +11,7 @@ const props = defineProps<{ status: DataStatus; now: number }>()
 
 const synthetic = computed(() => props.status.synthetic_remaining)
 const issues = computed(() => props.status.quality_issues ?? [])
+const ephemeral = computed(() => props.status.database && !props.status.database.persistent)
 
 const errorCount = computed(() => {
   const c = props.status.collect
@@ -51,6 +52,13 @@ const next = computed(() => {
         지연·결측: {{ issues.join(' · ') }}
       </div>
       <div v-else class="mt-2 text-caption text-ink-3">사용 중인 모든 시계열이 최근 영업일까지 수집된 실데이터입니다</div>
+      <div
+        v-if="ephemeral"
+        class="mt-2 text-micro font-semibold text-warn"
+        title="DB가 컨테이너 안 SQLite 파일이라 재배포·재시작 때 시계열·이벤트·실행 이력이 모두 지워집니다. Render 환경 변수 DATABASE_URL 에 Postgres Internal URL 을 넣으세요."
+      >
+        ⚠ 임시 DB ({{ status.database.dialect }}) — 재배포 시 초기화
+      </div>
     </section>
 
     <section class="rp-card flex flex-col px-5 py-[18px]">

@@ -38,6 +38,8 @@ docker compose logs -f api
 ## 실데이터로 바꾸기 (합성 데이터 배지 제거)
 
 Render 무료 서버는 재시작하면 컨테이너 안 SQLite가 지워지므로, 실데이터를 유지하려면 Postgres를 먼저 붙인다.
+현재 어느 DB 를 쓰는지는 `/api/meta` 의 `database` (`{"dialect": "sqlite", "persistent": false}` 면 임시 DB) 또는 데이터 관리 화면 '데이터 상태' 카드의 "임시 DB" 경고로 확인한다.
+임시 DB 상태에서는 재배포마다 합성 데이터로 시작해 20초 뒤 전체 기간을 다시 수집하고(수 분), 관보 이벤트 한국어 구조화에 Claude 토큰이 매번 다시 든다.
 
 1. **Postgres**: Render → New → Postgres (Free) → 생성 후 **Internal Database URL** 복사 → Web Service 환경 변수 `DATABASE_URL`에 붙여넣기 (재배포됨).
 2. **API 키 발급** (모두 무료, 발급 즉시 사용):
