@@ -47,11 +47,15 @@ DEFAULT_DAYS = 365
 API_URL = "https://apis.data.go.kr/1371000/pressReleaseService/pressReleaseList"
 # 포털의 '문화체육관광부_정책브리핑_정책뉴스_API'(데이터 15095335)는 policyNewsList2 오퍼레이션을 제공한다.
 # 키는 활용신청한 서비스에만 등록되므로 후보를 차례로 시도하고 처음 성공한 주소를 쓴다.
-API_CANDIDATES = [
+# 환경 변수 KOREA_BRIEFING_API_URL 이 있으면 그 주소를 가장 먼저 시도한다 (포털 상세 화면의 End Point + 오퍼레이션).
+API_CANDIDATES = [u for u in [
+    __import__("os").getenv("KOREA_BRIEFING_API_URL"),
     "https://apis.data.go.kr/1371000/policyNewsService/policyNewsList2",
+    "https://apis.data.go.kr/1371000/policyNewsService2/policyNewsList2",
+    "https://apis.data.go.kr/1371000/policyNewsService_V2/policyNewsList2",
     "https://apis.data.go.kr/1371000/policyNewsService/policyNewsList",
     API_URL,
-]
+] if u]
 RSS_URL = "https://www.korea.kr/rss/pressrelease.xml"
 # korea.kr RSS 주소는 개편으로 바뀔 수 있어 후보를 차례로 시도한다 (첫 성공 사용). 전부 실패하면 '건너뜀'으로 보고.
 RSS_CANDIDATES = [RSS_URL, "https://www.korea.kr/rss/policy.xml", "https://www.korea.kr/rss/news.xml",
@@ -270,6 +274,7 @@ def fetch_api(client: httpx.Client, service_key: str, rng: DateRange) -> list[di
     items: list[dict[str, Any]] = []
     url = None
     last_exc: Exception | None = None
+    failures: list[str] = []
     for page in range(1, MAX_PAGES + 1):
         params = {"serviceKey": service_key, "startDate": base.yyyymmdd(rng.since), "endDate": base.yyyymmdd(rng.until),
                   "pageNo": page, "numOfRows": PAGE_SIZE}
@@ -284,9 +289,10 @@ def fetch_api(client: httpx.Client, service_key: str, rng: DateRange) -> list[di
                     break
                 except CollectorError as exc:
                     last_exc = exc
+                    failures.append(f"{cand.rsplit('/', 2)[-2]}/{cand.rsplit('/', 1)[-1]} → {str(exc)[:140]}")
                     log.warning("정책브리핑 API 실패 %s: %s", cand, str(exc)[:160])
             if url is None:
-                raise CollectorError(f"정책브리핑 API 주소를 찾지 못함: {last_exc}")
+                raise CollectorError("정책브리핑 API 주소를 찾지 못함: " + " | ".join(failures))
         else:
             resp = base.get(client, url, params)
             got, total = parse_press_release_xml(resp.text)
@@ -343,7 +349,11 @@ def run(session: Session, rng: DateRange, *, api_key: str | None = None,
                 items = fetch_api(client, normalize_service_key(key), rng)
             except CollectorError as exc:
                 log.warning("보도자료 API 실패 (%s) — RSS 로 폴백", exc)
-                mode, items = "RSS (API 실패 폴백)", fetch_rss(client)
+                try:
+                    mode, items = "RSS (API 실패 폴백)", fetch_rss(client)
+                except MissingApiKey as rss_exc:
+                    # 두 경로 모두 실패: API 가 왜 실패했는지 보고서에 남겨 주소·키 문제를 화면에서 바로 알 수 있게 한다
+                    raise MissingApiKey(f"{exc} // RSS 도 실패: {rss_exc}. 포털 상세 화면의 요청 주소를 KOREA_BRIEFING_API_URL 환경 변수로 지정하면 그 주소를 먼저 시도합니다.") from rss_exc
         else:
             log.info("DATA_GO_KR_API_KEY 없음 — korea.kr RSS 로 수집 (최근 자료만)")
             mode, items = "RSS", fetch_rss(client)
