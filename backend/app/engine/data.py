@@ -61,22 +61,22 @@ def series_meta(session: Session, series_ids: list[str], as_of: date | None = No
     return out
 
 
-def factor_returns(levels: pd.DataFrame) -> pd.DataFrame:
-    """팩터 일별 변화: unit '%'는 변화율×100, '%p'는 차분."""
+def factor_returns(levels: pd.DataFrame, exclude: list[str] | None = None) -> pd.DataFrame:
+    """팩터 일별 변화: unit '%'는 변화율×100, '%p'는 차분. exclude 의 팩터(시계열 없음)는 열을 만들지 않는다."""
     cols = {}
     for f in FACTORS:
-        if f.series_id not in levels:
+        if f.series_id not in levels or (exclude and f.factor_id in exclude):
             continue
         s = levels[f.series_id]
         cols[f.factor_id] = s.pct_change(fill_method=None) * 100 if f.transform == "pct" else s.diff()
     return pd.DataFrame(cols)
 
 
-def factor_window_changes(levels: pd.DataFrame, horizon: int) -> pd.DataFrame:
+def factor_window_changes(levels: pd.DataFrame, horizon: int, exclude: list[str] | None = None) -> pd.DataFrame:
     """각 날짜에서 끝나는 horizon 영업일 누적 변화 (unit 규칙은 factor_returns와 같음)."""
     cols = {}
     for f in FACTORS:
-        if f.series_id not in levels:
+        if f.series_id not in levels or (exclude and f.factor_id in exclude):
             continue
         s = levels[f.series_id]
         cols[f.factor_id] = (s / s.shift(horizon) - 1) * 100 if f.transform == "pct" else s - s.shift(horizon)

@@ -353,6 +353,34 @@ def admin_collect_run_get(token: str | None = Query(default=None), since: date |
 
 # ------------------------------------------------------------------ 데이터 관리 (S7): 시리즈·이벤트·수집 현황
 
+# 값이 가끔만 바뀌는 계단형 시계열 (기준금리). 커버리지·지연 판정을 완화한다.
+STEP_SERIES = {"BOK_BASE_RATE", "FED_TARGET_UPPER"}
+STALE_BDAYS = 5  # 최종 관측일이 오늘보다 이 영업일 이상 뒤처지면 '지연' (공표 지연 1~2일은 정상)
+MIN_COVERAGE = 0.85  # 기간 내 영업일 대비 관측 비율이 이보다 낮으면 '결측 많음' (한국·미국 휴장일 차이 ≈ 5%)
+
+
+def _series_quality(count: int, first: date | None, last: date | None, today: date, synthetic: bool, *, step_like: bool) -> dict:
+    """신선도·커버리지 지표. stale_bdays: 최종 관측일 이후 영업일 수, coverage: 관측 수 / 기간 영업일 수."""
+    import numpy as np  # noqa: PLC0415
+
+    if not count or first is None or last is None:
+        return {"stale_bdays": None, "coverage": None, "quality": "empty"}
+    stale = int(np.busday_count(last, today)) if last < today else 0
+    bdays = int(np.busday_count(first, last)) + 1
+    coverage = round(min(count / bdays, 1.0), 3) if bdays > 0 else None
+    if synthetic:
+        quality = "synthetic"
+    elif stale > STALE_BDAYS and not step_like:
+        quality = "stale"
+    elif coverage is not None and coverage < MIN_COVERAGE and not step_like:
+        quality = "gappy"
+    elif step_like and stale > 20:
+        quality = "stale"
+    else:
+        quality = "ok"
+    return {"stale_bdays": stale, "coverage": coverage, "quality": quality}
+
+
 @router.get("/data/status")
 def data_status(s: Session = Depends(get_session)):
     """시리즈별 출처·기간·건수·실데이터 여부, 이벤트 소스별 건수, 마지막 수집 결과. 토큰 불필요(읽기 전용)."""
@@ -366,14 +394,18 @@ def data_status(s: Session = Depends(get_session)):
     ).all()
     used = {h.pricing.get("series_id") or h.pricing.get("yield_series") for h in s.scalars(select(Holding))} | {f.series_id for f in _F.values()}
     series = []
+    today = date.today()
     for sid, name, source, unit, lic, url, n, d0, d1, collected in rows:
+        synthetic = source.startswith("SYNTHETIC")
+        q = _series_quality(n, d0, d1, today, synthetic, step_like=sid in STEP_SERIES)
         series.append({
             "series_id": sid, "name": name, "source": source, "unit": unit, "license": lic, "source_url": url,
             "count": n, "first_date": d0.isoformat() if d0 else None, "last_date": d1.isoformat() if d1 else None,
             "collected_at": collected.isoformat() if collected else None,
-            "synthetic": source.startswith("SYNTHETIC"), "in_use": sid in used,
+            "synthetic": synthetic, "in_use": sid in used,
             "role": "factor" if sid in _F else ("asset" if sid in used else "other"),
             "factor_name": _F[sid].name if sid in _F else None,
+            **q,
         })
     ev_rows = s.execute(select(PolicyEvent.source, PolicyEvent.is_demo, func.count(), func.min(PolicyEvent.announced_at),
                                func.max(PolicyEvent.announced_at)).group_by(PolicyEvent.source, PolicyEvent.is_demo)).all()
@@ -387,6 +419,7 @@ def data_status(s: Session = Depends(get_session)):
     return {
         "llm_mode": settings.llm_mode, "model_default": settings.model_default, "model_impact_mapper": settings.model_impact_mapper,
         "synthetic_remaining": [x["series_id"] for x in series if x["synthetic"] and x["in_use"]],
+        "quality_issues": [x["series_id"] for x in series if x["in_use"] and x["quality"] in ("stale", "gappy", "empty")],
         "series": series, "events": events, "collectors": collectors,
         "collect": collect_status(), "admin_enabled": bool(settings.admin_token),
         "daily_hour_utc": settings.collect_daily_hour_utc,

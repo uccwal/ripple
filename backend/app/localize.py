@@ -47,7 +47,8 @@ class Localized(BaseModel):
 
 
 def needs_localization(ev: PolicyEvent) -> bool:
-    return not ev.is_demo and not ev.title_orig and not HANGUL.search(ev.title or "")
+    """예시가 아니고 제목에 한글이 없으면 대상. (재수집으로 영어 제목이 되돌아온 경우도 포함)"""
+    return not ev.is_demo and not HANGUL.search(ev.title or "")
 
 
 def localize_pending(limit: int = MAX_PER_RUN) -> dict:
@@ -72,7 +73,8 @@ def localize_pending(limit: int = MAX_PER_RUN) -> dict:
                 log.warning("%s: %s", ev.event_id, res.error)
                 continue
             p = res.parsed
-            ev.title_orig = ev.title
+            if not ev.title_orig:
+                ev.title_orig = ev.title
             ev.title = p.title[:300]
             ev.summary = p.summary
             ev.type = p.type

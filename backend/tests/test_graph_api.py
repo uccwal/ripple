@@ -73,13 +73,13 @@ def test_event_run_end_to_end(client):
 
 
 def test_scenario_run_and_recalc(client):
-    rid = client.post("/api/runs", json={"entry": "scenario", "scenario_text": "유가 30% 급등 + 원화 10% 약세", "portfolio_id": "pf_a"}).json()["run_id"]
+    rid = client.post("/api/runs", json={"entry": "scenario", "scenario_text": "유가 30% 급등 + 원화 20% 약세", "portfolio_id": "pf_a"}).json()["run_id"]
     d = _wait(client, rid)
     assert d["status"] == "done"
     assert [s["status"] for s in d["steps"][:2]] == ["skip", "skip"]
     shocks = {s["variable"]: s["change"] for s in d["scenario"]["shocks"]}
-    assert shocks == {"USDKRW": 10.0, "WTI": 30.0}
-    assert any(s["over_hist"] for s in d["scenario"]["shocks"])  # 원화 10%는 과거 최대 초과 (합성 데이터 기준)
+    assert shocks == {"USDKRW": 20.0, "WTI": 30.0}
+    assert any(s["over_hist"] for s in d["scenario"]["shocks"])  # 원화 20%는 과거 최대 초과 (합성 데이터 기준)
     assert d["graph"] is None and d["impact_paths"] == []
     # 충격값 수정 → 새 run, Regime Finder부터
     rid2 = client.patch(f"/api/runs/{rid}/scenario", json={"shocks": [{"variable": "USDKRW", "change": 2.0}]}).json()["run_id"]

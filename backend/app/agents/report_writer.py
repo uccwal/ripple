@@ -45,6 +45,37 @@ def _render_value(key: str, outputs: dict, scenario: dict) -> str:
     return str(v)
 
 
+def describe_key(key: str, names: dict[str, str]) -> str:
+    """수치 키의 의미 한 줄 (LLM 이 키를 잘못된 뜻으로 쓰지 않도록)."""
+    fixed = {
+        "pnl": "포트폴리오 예상 손익 (팩터 모델, %)", "amt": "예상 손익 금액 (억 원)",
+        "range.low": "추정 범위 하한 (95%)", "range.high": "추정 범위 상한 (95%)", "aum": "운용자산",
+        "reg.n": "과거 유사 국면 '구간' 수 — 사건·사례 수가 아님", "reg.median": "유사 국면 구간들의 실제 손익 중앙값",
+        "reg.low": "유사 국면 실제 손익 최소", "reg.high": "유사 국면 실제 손익 최대",
+        "horizon": "분석 기간 (영업일)", "event.value_text": "이벤트 원문의 핵심 수치", "event.date": "이벤트 발표일",
+        "rule.fx": "헤지 규칙 기준값 — 환율 기여 비중", "rule.sector": "헤지 규칙 기준값 — 업종 기여 비중",
+        "rule.rate": "헤지 규칙 기준값 — 금리 기여 비중",
+    }
+    if key in fixed:
+        return fixed[key]
+    if key.startswith("h:"):
+        aid, _, attr = key[2:].partition(".")
+        nm = names.get(aid, aid)
+        return {"ret": f"{nm} 예상 수익률", "contribution": f"{nm}의 포트폴리오 손익 기여 (%p)", "weight": f"{nm} 비중"}.get(attr, key)
+    if key.startswith("fc:"):
+        fid, _, attr = key[3:].partition(".")
+        nm = FACTOR_BY_ID[fid].name if fid in FACTOR_BY_ID else fid
+        return f"{nm} 팩터가 손실에서 차지하는 비중" if attr == "share" else f"{nm} 팩터의 손익 기여 (%p)"
+    if key.startswith("f:"):
+        fid = key[2:]
+        return f"{FACTOR_BY_ID[fid].name if fid in FACTOR_BY_ID else fid} 충격값 (시나리오)"
+    if key.startswith("hedge."):
+        return "헤지 규칙이 측정한 기여 비중"
+    if key.startswith("regime."):
+        return "개별 유사 국면 구간의 유사도/실제 손익"
+    return ""
+
+
 def substitute(text: str, outputs: dict, scenario: dict) -> tuple[str, list[str]]:
     """{{키}} → 서식 적용 값(마커 포함). 알 수 없는 키는 그대로 두고 위반으로 보고."""
     unknown: list[str] = []
@@ -97,13 +128,16 @@ def run(state: RunState, rejected: list[str] | None = None) -> tuple[dict, dict]
     scenario = state["scenario"]
     ev = state.get("event")
 
-    key_list = "\n".join(f"- {{{{{k}}}}}: {_render_value(k, outputs, scenario)}" for k in outputs)
+    names = {a["asset_id"]: a["name"] for a in r["by_asset"]}
+    key_list = "\n".join(f"- {{{{{k}}}}}: {_render_value(k, outputs, scenario)} — {describe_key(k, names)}" for k in outputs)
+    unavailable = (calc.get("inputs") or {}).get("factors_unavailable") or []
     user = (f"[분석 대상]\n{json.dumps(ev or {'scenario_text': state['input_text']}, ensure_ascii=False)}\n"
             f"[포트폴리오] {state['title']} · 가상 모델 포트폴리오\n"
             f"[충격값]\n{json.dumps([{k: s[k] for k in ('variable', 'name', 'change', 'unit', 'basis')} for s in scenario['shocks']], ensure_ascii=False)}\n"
             f"[헤지 규칙 결과 — 문장에 쓸 때는 why_tpl/rule_tpl 의 자리표시자를 그대로 쓴다]\n{json.dumps(r['hedges'], ensure_ascii=False)}\n"
             f"[검증]\n{json.dumps(state.get('validation'), ensure_ascii=False)}\n"
-            f"\n[수치 키 목록 — 반드시 이 키만 자리표시자로 사용]\n{key_list}")
+            + (f"[데이터 한계] 시계열 미수집으로 제외된 팩터: {', '.join(unavailable)} — 요약의 유의점에 한 줄 언급\n" if unavailable else "")
+            + f"\n[수치 키 목록 — 반드시 이 키만 자리표시자로 사용]\n{key_list}")
     if rejected:
         user += ("\n\n[반려] 이전 초안은 Validator가 반려했다. 아래 수치가 자리표시자 없이 쓰였다. "
                  "숫자(연도·개수·퍼센트 포함)는 전부 {{키}} 로만 쓰고, 키가 없는 숫자는 문장에서 빼라.\n- " + "\n- ".join(rejected))

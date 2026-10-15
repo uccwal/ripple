@@ -10,6 +10,7 @@ import { LLM_MODE_LABEL, SYNTHETIC_SERIES_TIP } from '@/utils/labels'
 const props = defineProps<{ status: DataStatus; now: number }>()
 
 const synthetic = computed(() => props.status.synthetic_remaining)
+const issues = computed(() => props.status.quality_issues ?? [])
 
 const errorCount = computed(() => {
   const c = props.status.collect
@@ -36,14 +37,20 @@ const next = computed(() => {
   <div class="grid grid-cols-4 gap-4">
     <section class="rp-card flex flex-col px-5 py-[18px]">
       <h2 class="m-0 text-small font-bold text-ink-2">데이터 상태</h2>
-      <div class="mt-2.5 flex items-center">
+      <div class="mt-2.5 flex items-center gap-2">
         <RpBadge v-if="synthetic.length === 0" variant="pass" tall>✓ 실데이터</RpBadge>
         <RpBadge v-else variant="warn" tall :tooltip="SYNTHETIC_SERIES_TIP">⚠ 합성 데이터 {{ synthetic.length }}개 시리즈</RpBadge>
+        <RpBadge v-if="issues.length" variant="warn" tooltip="최종 관측 지연 또는 결측이 많은 시리즈 — 아래 시계열 표의 상태 칸 참고">
+          점검 {{ issues.length }}
+        </RpBadge>
       </div>
       <div v-if="synthetic.length" class="ellipsis mt-2 font-mono text-micro text-ink-3" :title="synthetic.join(', ')">
         {{ synthetic.join(' · ') }}
       </div>
-      <div v-else class="mt-2 text-caption text-ink-3">사용 중인 모든 시계열이 수집된 실데이터입니다</div>
+      <div v-else-if="issues.length" class="ellipsis mt-2 font-mono text-micro text-ink-3" :title="issues.join(', ')">
+        지연·결측: {{ issues.join(' · ') }}
+      </div>
+      <div v-else class="mt-2 text-caption text-ink-3">사용 중인 모든 시계열이 최근 영업일까지 수집된 실데이터입니다</div>
     </section>
 
     <section class="rp-card flex flex-col px-5 py-[18px]">

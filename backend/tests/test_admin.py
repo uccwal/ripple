@@ -27,7 +27,7 @@ def test_admin_collect_requires_token_and_starts(monkeypatch):
 
 def test_collect_run_skips_without_keys():
     reports = collect.run(only=["fred", "ecos"])
-    assert {r["collector"] for r in reports} == {"fred", "ecos", "bok_rate_events", "localize"}
+    assert {r["collector"] for r in reports} == {"fred", "ecos", "bok_rate_events", "fed_rate_events", "localize"}
     assert all(r["status"] == "skipped" for r in reports)  # 키 없음 · offline
 
 
@@ -75,3 +75,21 @@ def test_derive_bok_rate_events(session):
     ev = session.get(PolicyEvent, "bok_rate_20241011")
     assert ev.country == "KR" and ev.type == "rate" and ev.value == -0.25 and "인하" in ev.title and ev.value_text == "−0.25%p"
     assert derive_bok_rate_events()["created"] == 0  # 멱등
+
+
+def test_factor_series_incomplete_detects_short_or_missing(session):
+    from sqlalchemy import delete
+
+    from app.models.tables import SeriesValue
+
+    assert collect.factor_series_incomplete() == []  # 합성 시드는 팩터 9개를 모두 11년치로 채운다
+    session.execute(delete(SeriesValue).where(SeriesValue.series_id == "DGS2"))
+    session.commit()
+    try:
+        assert collect.factor_series_incomplete() == ["DGS2"]
+        assert collect.data_incomplete() is True
+    finally:
+        from app import seed
+
+        seed.load_synthetic(session, force=True)
+        session.commit()

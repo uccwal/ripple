@@ -198,8 +198,8 @@ def test_fred_run_end_to_end_with_mock_transport(session):
     with base.make_client(transport=httpx.MockTransport(handler)) as c:
         counts = fred.run(session, DateRange(date(2024, 1, 1), date(2024, 1, 5)), api_key="k", client=c)
     session.commit()
-    assert counts == {"DGS10": 3, "WTI": 1}
-    assert {u.params["series_id"] for u in seen} == {"DGS10", "DCOILWTICO"}
+    assert counts == {"DGS10": 3, "DGS2": 3, "DXY_BROAD": 3, "FED_TARGET_UPPER": 3, "WTI": 1}
+    assert {u.params["series_id"] for u in seen} == {"DGS10", "DGS2", "DTWEXBGS", "DFEDTARU", "DCOILWTICO"}
     assert session.get(Series, "WTI").unit == "USD/bbl"
     assert "public domain" in session.get(Series, "DGS10").license
 
@@ -256,7 +256,7 @@ def test_ecos_run_pages_and_optional_series(session):
     with base.make_client(transport=httpx.MockTransport(handler)) as c:
         counts = ecos.run(session, DateRange(date(2024, 1, 1), date(2024, 1, 5)), api_key="KEY", client=c)
     session.commit()
-    assert counts == {"USDKRW": 2, "KTB3Y": 1, "BOK_BASE_RATE": 0}
+    assert counts == {"USDKRW": 2, "KTB3Y": 1, "BOK_BASE_RATE": 0, "KTB10Y": 1, "CORP3Y_AA": 1}
     assert session.get(Series, "USDKRW").source == "한국은행 ECOS"
 
 
@@ -428,6 +428,37 @@ def test_fr_build_params_repeats_array_keys():
     assert ("conditions[publication_date][gte]", "2025-01-01") in params
 
 
+@pytest.mark.parametrize("title,abstract,doc_type,etype,targets,expected", [
+    ("Adjusting Imports of Semiconductors Into the United States", "25 percent ad valorem tariff", "Presidential Document", "tariff",
+     ["semiconductor"], "high"),
+    ("Regulating Imports With a Reciprocal Tariff", "all trading partners", "Presidential Document", "tariff", ["all_imports"], "high"),
+    ("Certain Pasta From Italy: Final Results of Antidumping Duty Administrative Review", "", "Notice", "tariff", [], "low"),
+    ("Additions to the Entity List; Revisions to Export Controls on Advanced Computing", "semiconductor manufacturing", "Rule",
+     "regulation", ["semiconductor"], "high"),
+    ("Honey From Argentina: Preliminary Determination", "antidumping", "Notice", "tariff", [], "low"),
+    ("Modification of Section 301 Action: China's Acts", "tariff increases", "Notice", "tariff", [], "high"),
+    ("Procedures for Submitting Requests", "", "Rule", "regulation", [], "low"),
+])
+def test_fr_score_relevance(title, abstract, doc_type, etype, targets, expected):
+    assert federal_register.score_relevance(title, abstract, doc_type, etype, targets) == expected
+
+
+def test_upsert_events_preserves_localized_fields(session):
+    """한국어화된 이벤트(title_orig 있음)는 재수집해도 LLM 이 채운 제목·요약·관련성을 지키고 원문·수집 시각만 갱신한다."""
+    ev = {"event_id": "fr_LOC1", "country": "US", "type": "regulation", "title": "English title", "summary": "en",
+          "announced_at": "2025-03-01", "source": "Federal Register", "raw_text": "v1", "relevance": "mid"}
+    base.upsert_events(session, [ev])
+    session.flush()
+    row = session.get(PolicyEvent, "fr_LOC1")
+    assert row.relevance == "mid"
+    row.title_orig, row.title, row.summary, row.type, row.relevance = row.title, "한국어 제목", "한국어 요약", "tariff", "high"
+    session.flush()
+    base.upsert_events(session, [{**ev, "raw_text": "v2", "title": "English title (corrected)"}])
+    session.flush()
+    row = session.get(PolicyEvent, "fr_LOC1")
+    assert (row.title, row.summary, row.type, row.relevance, row.raw_text) == ("한국어 제목", "한국어 요약", "tariff", "high", "v2")
+
+
 def test_fr_run_dedupes_across_terms(session):
     calls = {"n": 0}
 
@@ -439,8 +470,10 @@ def test_fr_run_dedupes_across_terms(session):
         counts = federal_register.run(session, DateRange(date(2025, 1, 1), date(2025, 6, 30)), client=c)
     session.commit()
     assert calls["n"] == len(federal_register.SEARCH_TERMS)
-    assert counts == {"documents": 2, "events": 2, "tariff": 1, "regulation": 1}
+    assert counts == {"documents": 2, "events": 2, "tariff": 1, "regulation": 1,
+                      "relevance_high": 2, "relevance_mid": 0, "relevance_low": 0}
     assert session.scalar(select(func.count()).select_from(PolicyEvent)) == 2
+    assert {e.relevance for e in session.scalars(select(PolicyEvent))} == {"high"}
     # 재실행해도 늘지 않는다
     with base.make_client(transport=httpx.MockTransport(handler)) as c:
         federal_register.run(session, DateRange(date(2025, 1, 1), date(2025, 6, 30)), client=c)

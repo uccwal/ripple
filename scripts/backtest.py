@@ -26,10 +26,11 @@ from app.engine.catalog import FACTOR_BY_ID  # noqa: E402
 from app.engine.data import factor_window_changes, load_levels  # noqa: E402
 from app.models.tables import Run, Series  # noqa: E402
 
+# as_of 는 발표 전날(결정일 이후 데이터 차단). 국내 시세 실데이터(금융위 API)는 2020년부터라 2019 일본 수출규제는 실데이터 재현 대상에서 뺐다.
 CASES = [
-    {"name": "2019-07 일본 수출규제", "event_id": "ev_hist_2019_jp_export", "as_of": "2019-07-01", "portfolio_id": "pf_a",
-     "check": ["KOSPI", "KOSPI_IT", "USDKRW"]},
-    {"name": "2025-04 미국 상호관세", "event_id": "ev_hist_2025_us_reciprocal", "as_of": "2025-04-03", "portfolio_id": "pf_a",
+    {"name": "2022-10 미국 반도체 수출통제", "event_id": "ev_hist_2022_us_chip_export", "as_of": "2022-10-06", "portfolio_id": "pf_a",
+     "check": ["KOSPI_IT", "KOSPI", "USDKRW"]},
+    {"name": "2025-04 미국 상호관세", "event_id": "ev_hist_2025_us_reciprocal", "as_of": "2025-04-02", "portfolio_id": "pf_a",
      "check": ["USDKRW", "KOSPI", "US_EQ"]},
 ]
 

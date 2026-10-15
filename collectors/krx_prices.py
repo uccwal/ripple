@@ -69,6 +69,7 @@ class KrxSpec:
     note: str = ""
     alt_names: tuple[str, ...] = ()  # index: match_name 으로 0건이면 차례로 시도할 다른 지수명
     fallback: str = ""  # 모두 실패하면 이 series_id(SERIES 의 다른 항목)의 데이터를 대리로 저장
+    optional: bool = False  # True 면 0건이어도 오류·빈 시리즈를 만들지 않고 건너뛴다 (업종지수 확장분)
 
 
 # ============================================================================
@@ -90,6 +91,18 @@ SERIES: dict[str, KrxSpec] = {
                        match_name="TIGER 미국나스닥100", code="133690"),
     "KR_SEMI": KrxSpec("KR_SEMI", "etf", "KODEX 반도체 ETF 종가", "KRW", match_name="KODEX 반도체", code="091160"),
     "KR_AUTO": KrxSpec("KR_AUTO", "etf", "KODEX 자동차 ETF 종가", "KRW", match_name="KODEX 자동차", code="091180"),
+    # ---- 확장 (선택): 시장·업종 폭을 넓혀 과거 유사 국면·업종 노출 분석에 쓴다. 명칭이 바뀌면 alt_names 로 흡수.
+    "KOSDAQ": KrxSpec("KOSDAQ", "index", "KOSDAQ 지수", "index", match_name="코스닥", optional=True),
+    "K200_FIN": KrxSpec("K200_FIN", "index", "KOSPI 200 금융 업종지수", "index", match_name="코스피 200 금융",
+                        alt_names=("코스피200 금융",), optional=True),
+    "K200_IND": KrxSpec("K200_IND", "index", "KOSPI 200 산업재 업종지수", "index", match_name="코스피 200 산업재",
+                        alt_names=("코스피200 산업재",), optional=True),
+    "K200_ENE": KrxSpec("K200_ENE", "index", "KOSPI 200 에너지·화학 업종지수", "index", match_name="코스피 200 에너지/화학",
+                        alt_names=("코스피 200 에너지화학", "코스피200 에너지/화학"), optional=True),
+    "K200_CD": KrxSpec("K200_CD", "index", "KOSPI 200 경기소비재 업종지수 (자동차 포함)", "index", match_name="코스피 200 경기소비재",
+                       alt_names=("코스피 200 자유소비재", "코스피200 경기소비재"), optional=True),
+    "K200_MAT": KrxSpec("K200_MAT", "index", "KOSPI 200 철강·소재 업종지수", "index", match_name="코스피 200 철강/소재",
+                        alt_names=("코스피 200 철강소재", "코스피200 철강/소재"), optional=True),
 }
 
 
@@ -256,6 +269,10 @@ def run(session: Session, rng: DateRange, *, api_key: str | None = None,
                 log.warning("%s: %d건 받았지만 이름 '%s' 과 일치하는 행이 없음. 받은 이름 예: %s",
                             sid, len(items), spec.match_name,
                             sorted({str(it.get('idxNm') or it.get('itmsNm')) for it in items})[:8])
+            if not pts and spec.optional:
+                log.warning("%s (선택 시리즈): 받은 값이 없어 저장하지 않음", sid)
+                counts[sid] = 0
+                continue
             res = base.upsert_series(
                 session, series_id=spec.series_id, name=name, source=SOURCE, unit=spec.unit, frequency="D",
                 license=LICENSE, source_url=ENDPOINTS[spec.kind], points=pts)

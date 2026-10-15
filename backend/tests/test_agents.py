@@ -98,3 +98,49 @@ def test_parse_natural_won_weakness_is_fx_up():
     assert parse_natural("원화 10% 하락") == {"USDKRW": 10.0}
     assert parse_natural("원화 10% 급락") == {"USDKRW": 10.0}
     assert parse_natural("원화 3% 절상") == {"USDKRW": -3.0}
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("달러 인덱스 3% 상승", {"DXY_BROAD": 3.0}),
+    ("달러 약세 2%", {"DXY_BROAD": -2.0}),
+    ("미국 2년 금리 50bp 인상", {"DGS2": 0.5}),
+    ("원화 5% 약세 + 달러인덱스 2% 상승", {"USDKRW": 5.0, "DXY_BROAD": 2.0}),
+])
+def test_parse_natural_new_factors_longest_alias_wins(text, expected):
+    from app.agents.scenario_builder import parse_natural
+
+    assert parse_natural(text) == expected
+
+
+def test_validator_label_sign_and_direction_mismatch():
+    from app.agents.validator import check, label_sign
+
+    assert label_sign("원/달러 환율 상승", "USDKRW") == 1
+    assert label_sign("원화 약세", "USDKRW") == 1
+    assert label_sign("원화 강세", "USDKRW") == -1
+    assert label_sign("KOSPI IT 업종 하락", "KOSPI_IT") == -1
+    assert label_sign("미 국채 금리", "DGS10") is None
+    graph = {"nodes": [{"id": "n1", "label": "관세", "layer": "policy", "factor_id": None},
+                       {"id": "n2", "label": "KOSPI IT 업종 하락", "layer": "macro", "factor_id": "KOSPI_IT"},
+                       {"id": "n3", "label": "원/달러 환율 상승", "layer": "macro", "factor_id": "USDKRW"}],
+             "edges": []}
+    paths = [{"path_id": "p1", "steps": [{"from": "n1", "to": "n2", "direction": "-", "confidence": "low", "evidence": []},
+                                         {"from": "n1", "to": "n3", "direction": "+", "confidence": "low", "evidence": []}]}]
+    state = {"entry": "event", "graph": graph, "impact_paths": paths,
+             "scenario": {"horizon_days": 20, "shocks": [{"variable": "KOSPI_IT", "change": 4.0, "over_hist": False},
+                                                         {"variable": "USDKRW", "change": 2.0, "over_hist": False}]},
+             "result": None}
+    v = check(state, synthetic=False)
+    codes = {i["code"] for i in v["issues"]}
+    assert "direction_mismatch" in codes
+    assert next(i for i in v["issues"] if i["code"] == "direction_mismatch")["message"].endswith("KOSPI_IT")
+
+
+def test_report_writer_describe_key():
+    from app.agents.report_writer import describe_key
+
+    names = {"KR_SEMI": "국내 반도체 대형주"}
+    assert "사건" in describe_key("reg.n", names) and "구간" in describe_key("reg.n", names)
+    assert describe_key("h:KR_SEMI.contribution", names).startswith("국내 반도체 대형주")
+    assert "충격값" in describe_key("f:USDKRW", names)
+    assert "비중" in describe_key("fc:USDKRW.share", names)

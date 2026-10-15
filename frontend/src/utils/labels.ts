@@ -1,4 +1,5 @@
 import type {
+  SeriesQuality,
   CollectReportStatus,
   Confidence,
   CountryCode,
@@ -112,6 +113,15 @@ export const SERIES_ROLE_LABEL: Record<SeriesRole, string> = {
 }
 
 export const SYNTHETIC_SERIES_TIP = '데모용 합성 시계열 — 수집기가 실데이터로 교체합니다'
+
+/** 시계열 품질 배지 (실데이터 시리즈의 신선도·커버리지) */
+export const SERIES_QUALITY_BADGE: Record<SeriesQuality, { text: string; variant: 'pass' | 'warn' | 'fail' | 'outline'; tip: string }> = {
+  ok: { text: '✓ 실데이터', variant: 'pass', tip: '최근 영업일까지 수집됨 · 결측 적음' },
+  stale: { text: '⚠ 지연', variant: 'warn', tip: '최종 관측일이 오늘보다 5영업일 넘게 뒤처짐 — 수집기·API 키 확인' },
+  gappy: { text: '⚠ 결측', variant: 'warn', tip: '기간 내 영업일 대비 관측 비율이 85% 미만 — 중간 구간 누락 가능' },
+  synthetic: { text: '⚠ 합성', variant: 'warn', tip: SYNTHETIC_SERIES_TIP },
+  empty: { text: '값 없음', variant: 'fail', tip: '메타만 있고 값이 없음 — 수집기 결과 확인' },
+}
 
 /** 수집기 실행 결과 배지 */
 export const COLLECT_REPORT_BADGE: Record<CollectReportStatus, { text: string; variant: 'pass' | 'outline' | 'fail' }> = {

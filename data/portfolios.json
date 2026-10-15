@@ -81,7 +81,8 @@
           },
           "factors": [
             "US_EQ",
-            "DGS10"
+            "DGS10",
+            "DXY_BROAD"
           ]
         },
         {
@@ -96,7 +97,8 @@
           },
           "factors": [
             "US_EQ",
-            "KOSPI_IT"
+            "KOSPI_IT",
+            "DGS2"
           ]
         },
         {
@@ -125,7 +127,8 @@
             "series_id": "WTI"
           },
           "factors": [
-            "WTI"
+            "WTI",
+            "DXY_BROAD"
           ]
         }
       ]
@@ -196,7 +199,8 @@
           },
           "factors": [
             "US_EQ",
-            "DGS10"
+            "DGS10",
+            "DXY_BROAD"
           ]
         },
         {
@@ -225,7 +229,8 @@
             "series_id": "WTI"
           },
           "factors": [
-            "WTI"
+            "WTI",
+            "DXY_BROAD"
           ]
         }
       ]

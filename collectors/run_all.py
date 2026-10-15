@@ -46,12 +46,12 @@ class Collector:
 
 
 REGISTRY: list[Collector] = [
-    Collector("fred", fred.run, fred.REQUIRED_KEY, fred.DEFAULT_SINCE, "FRED → DGS10, WTI"),
-    Collector("ecos", ecos.run, ecos.REQUIRED_KEY, ecos.DEFAULT_SINCE, "한국은행 ECOS → USDKRW, KTB3Y, (BOK_BASE_RATE)"),
+    Collector("fred", fred.run, fred.REQUIRED_KEY, fred.DEFAULT_SINCE, "FRED → DGS10, DGS2, DXY_BROAD, WTI, (FED_TARGET_UPPER)"),
+    Collector("ecos", ecos.run, ecos.REQUIRED_KEY, ecos.DEFAULT_SINCE, "한국은행 ECOS → USDKRW, KTB3Y, (BOK_BASE_RATE, KTB10Y, CORP3Y_AA)"),
     Collector("krx_prices", krx_prices.run, krx_prices.REQUIRED_KEY, krx_prices.DEFAULT_SINCE,
-              "공공데이터포털 금융위원회 시세 → KOSPI, KOSPI_IT, KR_K200, US_EQ, US_TECH, KR_SEMI, KR_AUTO"),
+              "공공데이터포털 금융위원회 시세 → KOSPI, KOSPI_IT, KR_K200, US_EQ, US_TECH, KR_SEMI, KR_AUTO, (KOSDAQ, K200 업종)"),
     Collector("federal_register", federal_register.run, federal_register.REQUIRED_KEY,
-              lambda: date.today() - timedelta(days=federal_register.DEFAULT_DAYS), "Federal Register → PolicyEvent(US)"),
+              lambda: date.today() - timedelta(days=federal_register.DEFAULT_DAYS), "Federal Register (USTR·상무부·BIS) → PolicyEvent(US) + 관련성"),
     Collector("korea_briefing", korea_briefing.run, korea_briefing.REQUIRED_KEY,
               lambda: date.today() - timedelta(days=korea_briefing.DEFAULT_DAYS), "대한민국 정책브리핑 → PolicyEvent(KR)"),
 ]

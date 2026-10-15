@@ -385,6 +385,8 @@ export interface CalcLog {
 /* ---------- /api/data/status (S7 데이터 관리) ---------- */
 
 export type SeriesRole = 'factor' | 'asset' | 'other'
+/** 시계열 품질: ok · stale(최종 관측 지연) · gappy(결측 많음) · synthetic(합성) · empty(값 없음) */
+export type SeriesQuality = 'ok' | 'stale' | 'gappy' | 'synthetic' | 'empty'
 export type CollectReportStatus = 'ok' | 'skipped' | 'error'
 
 export interface SeriesStatus {
@@ -404,6 +406,11 @@ export interface SeriesStatus {
   in_use: boolean
   role: SeriesRole
   factor_name: string | null
+  /** 최종 관측일 이후 지난 영업일 수 (값이 없으면 null) */
+  stale_bdays: number | null
+  /** 기간 내 영업일 대비 관측 비율 0~1 (값이 없으면 null) */
+  coverage: number | null
+  quality: SeriesQuality
 }
 
 export interface EventSourceStatus {
@@ -445,6 +452,8 @@ export interface DataStatus {
   model_impact_mapper: string
   /** 아직 합성 데이터로 계산 중인(사용 중인) 시리즈 id */
   synthetic_remaining: string[]
+  /** 사용 중인데 지연·결측·빈 값인 시리즈 id */
+  quality_issues: string[]
   series: SeriesStatus[]
   events: EventSourceStatus[]
   collectors: CollectorStatus[]

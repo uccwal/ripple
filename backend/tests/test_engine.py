@@ -112,3 +112,43 @@ def test_top_contributors_by_absolute_value(session):
     tops = [abs(a["contribution"]) for a in r["by_asset"] if a["asset_id"] in r["top_contributors"]]
     others = [abs(a["contribution"]) for a in r["by_asset"] if a["asset_id"] not in r["top_contributors"]]
     assert min(tops) >= max(others)
+
+
+def test_prepare_excludes_missing_factor_series(session):
+    """팩터 시계열이 없으면 계산을 멈추지 않고 그 팩터만 제외하며 calc_log 에 기록한다."""
+    from sqlalchemy import delete
+
+    from app.engine import risk
+    from app.models.tables import SeriesValue
+
+    session.execute(delete(SeriesValue).where(SeriesValue.series_id == "DXY_BROAD"))
+    try:
+        ctx = risk.prepare(session, "pf_a", None, 20)
+        assert ctx.unavailable_factors == ["DXY_BROAD"]
+        assert "DXY_BROAD" not in ctx.factor_ret.columns and "DXY_BROAD" not in ctx.window_changes.columns
+        assert "DXY_BROAD" not in ctx.fits["US_EQ"].betas and "WTI" in ctx.fits["OIL"].betas
+        stats = risk.scenario_stats(ctx)
+        assert "DXY_BROAD" in stats["unavailable"] and "DXY_BROAD" not in stats["available"]
+        out = risk.compute(ctx, {"WTI": 10.0, "DXY_BROAD": 3.0}, [], "run_x")
+        assert out["calc_log"]["inputs"]["factors_unavailable"] == ["DXY_BROAD"]
+        assert "f:DXY_BROAD" not in out["calc_log"]["outputs"]
+        assert not ctx.window_changes.dropna().empty  # 유사 국면 탐색이 가능해야 한다
+    finally:
+        session.rollback()
+
+
+def test_analog_summary_and_betas_in_stats(session):
+    from app.engine import risk
+    from app.engine.regimes import analog_summary
+
+    summ = analog_summary([{"changes": {"USDKRW": 2.0, "KOSPI": -3.0}}, {"changes": {"USDKRW": 4.0, "KOSPI": 1.0}},
+                           {"changes": {"USDKRW": -1.0}}])
+    assert summ["USDKRW"] == {"n": 3, "median": 2.0, "p25": 0.5, "p75": 3.0, "up_share": pytest.approx(2 / 3)}
+    assert summ["KOSPI"]["n"] == 2 and summ["KOSPI"]["up_share"] == 0.5
+    ctx = risk.prepare(session, "pf_a", None, 20)
+    stats = risk.scenario_stats(ctx)
+    assert set(stats["analog_summary"]) == {"tariff", "rate", "regulation", "fx", "macro"}
+    assert stats["analog_summary"]["tariff"]["USDKRW"]["n"] >= 3
+    b = stats["betas"]["KR_SEMI"]
+    assert set(b["factors"]) == {"KOSPI_IT", "USDKRW"} and b["factors"]["KOSPI_IT"]["t"] is not None
+    assert stats["available"] == [f for f in risk.FACTOR_IDS if f not in stats["unavailable"]]

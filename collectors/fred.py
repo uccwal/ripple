@@ -4,6 +4,9 @@
 
 수집 시리즈 (제3자 저작권이 없는 미국 정부 공개 통계만):
 - DGS10      → series_id DGS10  미국 국채 10년 금리 (%)      원 출처 Board of Governors of the Federal Reserve System (H.15)
+- DGS2       → series_id DGS2   미국 국채 2년 금리 (%)       원 출처 Board of Governors (H.15) — 정책금리 기대를 반영하는 단기 금리 팩터
+- DTWEXBGS   → series_id DXY_BROAD  달러 인덱스 (광의·명목)   원 출처 Board of Governors (H.10) — 제3자 지수(ICE DXY)가 아닌 연준 산출 지수
+- DFEDTARU   → series_id FED_TARGET_UPPER  연방기금 목표금리 상단 (%)  원 출처 FOMC — 팩터는 아니고 미국 기준금리 결정 이벤트 파생용
 - DCOILWTICO → series_id WTI    WTI 유가 (USD/bbl)           원 출처 U.S. Energy Information Administration (EIA)
 
 수집하지 않는 것: S&P 500(SP500), 나스닥, 다우 등 제3자 저작권이 표시된 주가지수 시리즈.
@@ -63,9 +66,18 @@ SERIES: dict[str, FredSpec] = {
         series_id="WTI", fred_id="DCOILWTICO", name="WTI 유가 (Cushing, OK 현물)", unit="USD/bbl",
         origin="U.S. Energy Information Administration (EIA)",
         license=f"{_FRED_TERMS}; 원 자료는 미국 에너지정보청(EIA) 공개 데이터(public domain)"),
-    # 확장 후보 (설계서 표에 언급): 달러지수 DTWEXBGS (Board of Governors, public domain).
-    # "DXY_BROAD": FredSpec("DXY_BROAD", "DTWEXBGS", "달러 인덱스 (광의, 명목)", "index",
-    #                       origin="Board of Governors of the Federal Reserve System", license=_FRED_TERMS),
+    "DGS2": FredSpec(
+        series_id="DGS2", fred_id="DGS2", name="미국 국채 2년 금리", unit="%",
+        origin="Board of Governors of the Federal Reserve System (H.15 Selected Interest Rates)",
+        license=f"{_FRED_TERMS}; 원 자료는 미국 연방준비제도이사회 공개 데이터(public domain)"),
+    "DXY_BROAD": FredSpec(
+        series_id="DXY_BROAD", fred_id="DTWEXBGS", name="달러 인덱스 (광의·명목, 연준 산출)", unit="index",
+        origin="Board of Governors of the Federal Reserve System (H.10 Foreign Exchange Rates)",
+        license=f"{_FRED_TERMS}; 원 자료는 미국 연방준비제도이사회 공개 데이터(public domain)"),
+    "FED_TARGET_UPPER": FredSpec(
+        series_id="FED_TARGET_UPPER", fred_id="DFEDTARU", name="연방기금 목표금리 상단", unit="%",
+        origin="Federal Open Market Committee (FOMC) via Board of Governors",
+        license=f"{_FRED_TERMS}; 원 자료는 미국 연방준비제도이사회 공개 데이터(public domain)"),
 }
 
 

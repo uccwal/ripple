@@ -28,6 +28,8 @@ FACTOR_SPECS = [
     ("DGS10", "미국 국채 10년 금리 (합성)", "%", 2.1),
     ("KTB3Y", "국고채 3년 금리 (합성)", "%", 2.1),
     ("WTI", "WTI 유가 (합성)", "USD/bbl", 53.0),
+    ("DGS2", "미국 국채 2년 금리 (합성)", "%", 0.7),
+    ("DXY_BROAD", "달러 인덱스 광의 (합성)", "index", 105.0),
 ]
 ASSET_SPECS = [
     ("KR_SEMI", "국내 반도체 대형주 가격 지수 (합성)", "index", 100.0),
@@ -37,25 +39,33 @@ ASSET_SPECS = [
 ]
 
 # 일별 변동성: % 변화율 팩터는 %, 금리는 %p
-VOL = {"USDKRW": 0.45, "KOSPI": 1.0, "KOSPI_IT": 1.45, "US_EQ": 1.0, "DGS10": 0.060, "KTB3Y": 0.030, "WTI": 2.3}
-ORDER = ["USDKRW", "KOSPI", "KOSPI_IT", "US_EQ", "DGS10", "KTB3Y", "WTI"]
+VOL = {"USDKRW": 0.45, "KOSPI": 1.0, "KOSPI_IT": 1.45, "US_EQ": 1.0, "DGS10": 0.060, "KTB3Y": 0.030, "WTI": 2.3,
+       "DGS2": 0.055, "DXY_BROAD": 0.30}
+ORDER = ["USDKRW", "KOSPI", "KOSPI_IT", "US_EQ", "DGS10", "KTB3Y", "WTI", "DGS2", "DXY_BROAD"]
 CORR = np.array([
-    #  FX     KOSPI  IT     USEQ   DGS10  KTB    WTI
-    [1.00, -0.45, -0.40, -0.20, 0.00, 0.05, -0.15],
-    [-0.45, 1.00, 0.85, 0.40, 0.10, 0.05, 0.20],
-    [-0.40, 0.85, 1.00, 0.45, 0.05, 0.00, 0.10],
-    [-0.20, 0.40, 0.45, 1.00, 0.20, 0.05, 0.25],
-    [0.00, 0.10, 0.05, 0.20, 1.00, 0.45, 0.20],
-    [0.05, 0.05, 0.00, 0.05, 0.45, 1.00, 0.10],
-    [-0.15, 0.20, 0.10, 0.25, 0.20, 0.10, 1.00],
+    #  FX     KOSPI  IT     USEQ   DGS10  KTB    WTI    DGS2   DXY
+    [1.00, -0.45, -0.40, -0.20, 0.00, 0.05, -0.15, 0.05, 0.70],
+    [-0.45, 1.00, 0.85, 0.40, 0.10, 0.05, 0.20, 0.05, -0.35],
+    [-0.40, 0.85, 1.00, 0.45, 0.05, 0.00, 0.10, 0.00, -0.30],
+    [-0.20, 0.40, 0.45, 1.00, 0.20, 0.05, 0.25, 0.15, -0.25],
+    [0.00, 0.10, 0.05, 0.20, 1.00, 0.45, 0.20, 0.85, 0.15],
+    [0.05, 0.05, 0.00, 0.05, 0.45, 1.00, 0.10, 0.40, 0.05],
+    [-0.15, 0.20, 0.10, 0.25, 0.20, 0.10, 1.00, 0.15, -0.30],
+    [0.05, 0.05, 0.00, 0.15, 0.85, 0.40, 0.15, 1.00, 0.25],
+    [0.70, -0.35, -0.30, -0.25, 0.15, 0.05, -0.30, 0.25, 1.00],
 ])
 # 사건 유형별 양식화된 20영업일 누적 충격 (방향 위주, 크기는 가정)
 EPISODE = {
-    "tariff": {"USDKRW": 3.0, "KOSPI": -5.0, "KOSPI_IT": -8.5, "US_EQ": -4.5, "DGS10": -0.20, "KTB3Y": -0.06, "WTI": -6.0},
-    "regulation": {"USDKRW": 2.0, "KOSPI": -4.0, "KOSPI_IT": -7.0, "US_EQ": -0.5, "DGS10": -0.05, "KTB3Y": -0.04, "WTI": -1.0},
-    "rate": {"USDKRW": 2.5, "KOSPI": -4.0, "KOSPI_IT": -5.5, "US_EQ": -4.0, "DGS10": 0.35, "KTB3Y": 0.18, "WTI": -3.0},
-    "fx": {"USDKRW": 3.5, "KOSPI": -5.5, "KOSPI_IT": -6.5, "US_EQ": -5.0, "DGS10": -0.15, "KTB3Y": -0.05, "WTI": -7.0},
-    "macro": {"USDKRW": 4.0, "KOSPI": -8.0, "KOSPI_IT": -10.0, "US_EQ": -9.0, "DGS10": -0.40, "KTB3Y": -0.15, "WTI": -15.0},
+    "tariff": {"USDKRW": 3.0, "KOSPI": -5.0, "KOSPI_IT": -8.5, "US_EQ": -4.5, "DGS10": -0.20, "KTB3Y": -0.06, "WTI": -6.0,
+               "DGS2": -0.15, "DXY_BROAD": 2.0},
+    "regulation": {"USDKRW": 2.0, "KOSPI": -4.0, "KOSPI_IT": -7.0, "US_EQ": -0.5, "DGS10": -0.05, "KTB3Y": -0.04, "WTI": -1.0,
+                   "DGS2": -0.03, "DXY_BROAD": 0.5},
+    "rate": {"USDKRW": 2.5, "KOSPI": -4.0, "KOSPI_IT": -5.5, "US_EQ": -4.0, "DGS10": 0.35, "KTB3Y": 0.18, "WTI": -3.0,
+             "DGS2": 0.45, "DXY_BROAD": 2.5},
+    "fx": {"USDKRW": 3.5, "KOSPI": -5.5, "KOSPI_IT": -6.5, "US_EQ": -5.0, "DGS10": -0.15, "KTB3Y": -0.05, "WTI": -7.0,
+           "DGS2": -0.10, "DXY_BROAD": 3.0},
+    "macro": {"USDKRW": 4.0, "KOSPI": -8.0, "KOSPI_IT": -10.0, "US_EQ": -9.0, "DGS10": -0.40, "KTB3Y": -0.15, "WTI": -15.0,
+              "DGS2": -0.50, "DXY_BROAD": 4.0},
 }
 
 
@@ -87,11 +97,11 @@ def generate(seed: int = 42) -> dict[str, pd.Series]:
     out: dict[str, pd.Series] = {}
     start = {s[0]: s[3] for s in FACTOR_SPECS}
     for k in ORDER:
-        if k in ("DGS10", "KTB3Y"):
+        if k in ("DGS10", "KTB3Y", "DGS2"):
             # 평균 회귀하는 금리 (하한 0.2%)
             level = np.empty(n)
             level[0] = start[k]
-            target = 2.6 if k == "DGS10" else 2.4
+            target = {"DGS10": 2.6, "KTB3Y": 2.4, "DGS2": 2.2}[k]
             for i in range(1, n):
                 level[i] = max(0.2, level[i - 1] + shocks[k].iloc[i] + 0.002 * (target - level[i - 1]))
             out[k] = pd.Series(level, index=dates)

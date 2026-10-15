@@ -8,7 +8,7 @@ from .. import llm, prompts
 from ..config import settings
 from ..engine.catalog import FACTOR_BY_ID
 from ..models.state import Evidence, ImpactPaths, PathNode, PathStep, RunState
-from .common import factor_list_text, model_label
+from .common import analog_summary_text, betas_text, factor_list_text, model_label
 
 LAYER_NAME = {"policy": "정책", "industry": "산업", "macro": "거시 변수", "asset": "자산군"}
 
@@ -21,6 +21,12 @@ def _stats_text(stats: dict, event: dict, holdings_summary: list[dict]) -> str:
         lines.append(f"- {a['label']} ({a['date']}): {ch}")
     if len(lines) == 1:
         lines.append("- (같은 유형의 과거 사례 통계 없음)")
+    lines.append("\n[유형별 과거 사례 요약 — 팩터별 중앙값·사분위·방향 일치율] (출처: engine/regimes.py · DB 시계열)")
+    lines.append(analog_summary_text(stats, [event["type"]]))
+    lines.append("\n[자산별 팩터 민감도 — 일별 수익률 OLS 회귀] (출처: engine/factors.py · OLS 베타)")
+    lines.append(betas_text(stats))
+    if stats.get("unavailable"):
+        lines.append(f"\n[이번 계산에서 제외된 팩터 — 시계열 미수집] {', '.join(stats['unavailable'])} (macro 노드로 쓰지 않는다)")
     lines.append("\n[팩터별 과거 20영업일 최대 변동폭] (출처: engine/regimes.py)")
     lines.append(", ".join(f"{k} ±{v:.2f}{FACTOR_BY_ID[k].unit}" for k, v in stats["hist_max"].items() if k in FACTOR_BY_ID))
     lines.append("\n[포트폴리오 구성] (출처: 가상 모델 포트폴리오)")
@@ -131,11 +137,11 @@ def to_graph(ip: ImpactPaths, as_of: str) -> tuple[list[dict], dict]:
 def run(state: RunState, stats: dict, holdings_summary: list[dict], rejected_issues: list[str] | None) -> tuple[list[dict], dict, dict]:
     event = state["event"]
     as_of = state.get("as_of") or date.today().isoformat()
-    system = prompts.IMPACT_MAPPER.replace("{factor_list}", factor_list_text())
+    system = prompts.IMPACT_MAPPER.replace("{factor_list}", factor_list_text(stats.get("unavailable")))
     user = f"[정책 이벤트]\n{json.dumps(event, ensure_ascii=False)}\n\n{_stats_text(stats, event, holdings_summary)}"
     if rejected_issues:
         user += "\n\n" + prompts.IMPACT_MAPPER_RETRY.format(issues="\n".join(f"- {i}" for i in rejected_issues))
-    res = llm.structured(system, user, ImpactPaths, model=settings.model_impact_mapper, effort="medium", max_tokens=16000)
+    res = llm.structured(system, user, ImpactPaths, model=settings.model_impact_mapper, effort="high", max_tokens=16000)
     if res.parsed is None:
         if res.error != "offline":
             raise llm.LLMError(res.error or "Impact Mapper 실패")

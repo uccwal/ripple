@@ -28,7 +28,8 @@ class Settings:
     # LLM_MODE=offline 이면 API 키가 있어도 LLM을 호출하지 않는다 (규칙 기반 Agent로 실행).
     llm_mode_override: str | None = os.getenv("LLM_MODE") or None
     model_default: str = os.getenv("MODEL_DEFAULT") or "claude-haiku-5-5"
-    model_impact_mapper: str = os.getenv("MODEL_IMPACT_MAPPER") or os.getenv("MODEL_DEFAULT") or "claude-haiku-5-5"
+    # 파급 경로 추론은 가장 추론 품질에 민감한 단계라 기본값을 Sonnet 으로 둔다 (MODEL_IMPACT_MAPPER 로 변경 가능)
+    model_impact_mapper: str = os.getenv("MODEL_IMPACT_MAPPER") or "claude-sonnet-5-5"
     llm_timeout_s: float = _float("LLM_TIMEOUT_S", 120.0)
 
     # 재시도 상한 (설계서 2장)

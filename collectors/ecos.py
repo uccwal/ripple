@@ -5,7 +5,9 @@
 수집 시리즈
 - 원/달러 환율 (매매기준율, 일별)  → USDKRW  (KRW)
 - 국고채 3년 금리 (시장금리, 일별)   → KTB3Y   (%)
-- (선택) 한국은행 기준금리 (일별)    → BOK_BASE_RATE (%)  — 팩터 카탈로그에는 없고 이벤트 검증·화면 참고용
+- (선택) 한국은행 기준금리 (일별)    → BOK_BASE_RATE (%)  — 팩터 카탈로그에는 없고 금통위 결정 이벤트 파생·화면 참고용
+- (선택) 국고채 10년 금리 (일별)     → KTB10Y  (%)  — 장기물 참고 시계열 (팩터 확장 후보)
+- (선택) 회사채 3년 AA- 금리 (일별)  → CORP3Y_AA (%) — 국고채 3년과의 차이가 신용 스프레드 (팩터 확장 후보)
 
 API 형식
   https://ecos.bok.or.kr/api/StatisticSearch/{인증키}/json/kr/{시작행}/{끝행}/{통계표코드}/{주기}/{검색시작일}/{검색종료일}/{통계항목코드1}
@@ -58,11 +60,14 @@ class EcosSpec:
 #   731Y001 주요국 통화의 대원화 환율       0000001 원/미국달러(매매기준율)
 #   817Y002 시장금리(일별)                 010200000 국고채(3년)
 #   722Y001 한국은행 기준금리 및 여수신금리  0101000 한국은행 기준금리
+#   817Y002 시장금리(일별)                 010210000 국고채(10년)   010300000 회사채(3년, AA-)
 # ============================================================================
 SERIES: dict[str, EcosSpec] = {
     "USDKRW": EcosSpec("USDKRW", "731Y001", "0000001", "D", "원/달러 환율 (매매기준율)", "KRW"),
     "KTB3Y": EcosSpec("KTB3Y", "817Y002", "010200000", "D", "국고채 3년 금리", "%"),
     "BOK_BASE_RATE": EcosSpec("BOK_BASE_RATE", "722Y001", "0101000", "D", "한국은행 기준금리", "%", optional=True),
+    "KTB10Y": EcosSpec("KTB10Y", "817Y002", "010210000", "D", "국고채 10년 금리", "%", optional=True),
+    "CORP3Y_AA": EcosSpec("CORP3Y_AA", "817Y002", "010300000", "D", "회사채 3년 (AA-) 금리", "%", optional=True),
 }
 
 
@@ -141,6 +146,10 @@ def run(session: Session, rng: DateRange, *, api_key: str | None = None,
                     counts[sid] = 0
                     continue
                 raise
+            if not pts and spec.optional:
+                log.warning("%s (선택 시리즈): 받은 값이 없어 저장하지 않음", sid)
+                counts[sid] = 0
+                continue
             res = base.upsert_series(
                 session, series_id=spec.series_id, name=spec.name, source=SOURCE, unit=spec.unit, frequency="D",
                 license=LICENSE,

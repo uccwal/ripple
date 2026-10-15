@@ -118,3 +118,22 @@ def analog_changes(window_changes: pd.DataFrame, horizon: int, tag_type: str) ->
         out.append({"label": t["label"], "date": t["date"], "start": start, "end": end,
                     "changes": {k: float(v) for k, v in row.items() if pd.notna(v)}})
     return out
+
+
+def analog_summary(analogs: list[dict]) -> dict[str, dict]:
+    """사례 목록 → 팩터별 {n, median, p25, p75, up_share(상승 비율), labels}. LLM 이 중앙값을 직접 계산하지 않도록 엔진이 만든다."""
+    by_factor: dict[str, list[float]] = {}
+    for a in analogs:
+        for k, v in a["changes"].items():
+            by_factor.setdefault(k, []).append(float(v))
+    out: dict[str, dict] = {}
+    for k, vals in by_factor.items():
+        arr = np.array(vals)
+        out[k] = {
+            "n": int(len(arr)),
+            "median": float(np.median(arr)),
+            "p25": float(np.percentile(arr, 25)),
+            "p75": float(np.percentile(arr, 75)),
+            "up_share": float((arr > 0).mean()),
+        }
+    return out

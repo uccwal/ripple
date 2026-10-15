@@ -20,12 +20,14 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..models.tables import FactorBeta, Holding, Portfolio
 from . import fmt
-from .catalog import FACTOR_BY_ID, FACTOR_IDS
+from .catalog import FACTOR_BY_ID, FACTOR_IDS, FACTORS
 from .data import (SeriesMeta, asset_returns, factor_returns, factor_window_changes, load_levels,
                    required_series, series_meta, window_return)
 from .factors import BetaFit, fit_asset
 from .hedge import suggest
-from .regimes import Regime, analog_changes, historical_max, top_regimes
+from .regimes import Regime, analog_changes, analog_summary, historical_max, top_regimes
+
+ANALOG_TYPES = ("tariff", "rate", "regulation", "fx", "macro")
 
 ENGINE_VERSION = "0.1.0"
 Z95 = 1.96
@@ -52,6 +54,11 @@ class Context:
     window_changes: pd.DataFrame
     meta: dict[str, SeriesMeta]
     fits: dict[str, BetaFit] = field(default_factory=dict)
+    unavailable_factors: list[str] = field(default_factory=list)  # 시계열이 없어 이번 계산에서 제외한 팩터
+
+    @property
+    def available_factors(self) -> list[str]:
+        return [k for k in FACTOR_IDS if k not in self.unavailable_factors]
 
     @property
     def synthetic(self) -> bool:
@@ -81,19 +88,30 @@ def prepare(session: Session, portfolio_id: str, as_of: date | None, horizon: in
     levels = load_levels(session, sids, as_of)
     if levels.empty:
         raise ValueError("시계열 데이터가 없습니다. 수집기 또는 seed를 먼저 실행하세요.")
-    missing = [s for s in sids if s not in levels or levels[s].notna().sum() == 0]
+    asset_sids = {(h.pricing or {}).get("series_id") or (h.pricing or {}).get("yield_series") for h in holdings} | {"USDKRW"}
+    missing = [s for s in sids if s in asset_sids and (s not in levels or levels[s].notna().sum() == 0)]
     if missing:
         raise ValueError(f"시계열 누락: {', '.join(missing)}")
+    # 팩터 시계열이 아직 없으면(수집 전) 계산을 멈추지 않고 그 팩터만 제외한다. calc_log 에 기록해 화면·보고서에서 알 수 있게 한다.
+    unavailable = [f.factor_id for f in FACTORS
+                   if f.series_id not in levels or levels[f.series_id].notna().sum() < settings.beta_min_obs]
+    if unavailable:
+        levels = levels.drop(columns=[FACTOR_BY_ID[k].series_id for k in unavailable
+                                      if FACTOR_BY_ID[k].series_id not in asset_sids], errors="ignore")
     as_of_eff = levels.index[-1].date()
     ctx = Context(
         portfolio=pf, holdings=holdings, as_of=as_of_eff, horizon=horizon, levels=levels,
-        factor_ret=factor_returns(levels),
+        factor_ret=factor_returns(levels, exclude=unavailable),
         asset_ret={h.asset_id: asset_returns(h, levels) for h in holdings},
-        window_changes=factor_window_changes(levels, horizon),
-        meta=series_meta(session, sids, as_of),
+        window_changes=factor_window_changes(levels, horizon, exclude=unavailable),
+        meta=series_meta(session, [x for x in sids if x in levels.columns], as_of),
+        unavailable_factors=unavailable,
     )
     for h in holdings:
-        ctx.fits[h.asset_id] = fit_asset(h.asset_id, ctx.asset_ret[h.asset_id], ctx.factor_ret, list(h.factors),
+        fids = [k for k in h.factors if k not in unavailable]
+        if not fids:
+            raise ValueError(f"{h.asset_id}: 사용할 수 있는 팩터 시계열이 없습니다 ({', '.join(h.factors)})")
+        ctx.fits[h.asset_id] = fit_asset(h.asset_id, ctx.asset_ret[h.asset_id], ctx.factor_ret, fids,
                                          settings.beta_window_days, settings.beta_min_obs)
     _store_betas(session, ctx)
     return ctx
@@ -112,10 +130,31 @@ def _store_betas(session: Session, ctx: Context) -> None:
 # ---------------------------------------------------------------- Scenario Builder 보조 통계
 
 def scenario_stats(ctx: Context) -> dict:
-    """충격값 근거: 팩터별 과거 최대 변동폭, 유형별 과거 사례 직후 변화."""
+    """LLM Agent 에 주는 요약 통계 (시계열 원본 대신).
+
+    - hist_max: 팩터별 과거 horizon 구간 변화의 최대 절댓값
+    - analogs: 유형별 과거 사례 직후 horizon 구간의 실제 팩터 변화 (사례별)
+    - analog_summary: 유형·팩터별 중앙값·사분위·방향 일치율 (LLM 이 직접 계산하지 않도록 엔진이 미리 계산)
+    - betas: 자산별 OLS 베타·t값·R² (경로의 거시→자산 단계 정량 근거)
+    - available / unavailable: 이번 계산에 쓸 수 있는 팩터
+    """
+    analogs = {t: analog_changes(ctx.window_changes, ctx.horizon, t) for t in ANALOG_TYPES}
+    betas = {}
+    for h in ctx.holdings:
+        fit = ctx.fits[h.asset_id]
+        betas[h.asset_id] = {
+            "name": h.name, "r2": round(fit.r2, 2), "n_obs": fit.n_obs,
+            "factors": {k: {"beta": round(b, 3),
+                            "t": round(b / fit.std_err[k], 1) if fit.std_err.get(k, 0) > 0 else None}
+                        for k, b in fit.betas.items()},
+        }
     return {
         "hist_max": historical_max(ctx.window_changes),
-        "analogs": {t: analog_changes(ctx.window_changes, ctx.horizon, t) for t in ("tariff", "rate", "regulation", "fx", "macro")},
+        "analogs": analogs,
+        "analog_summary": {t: analog_summary(a) for t, a in analogs.items()},
+        "betas": betas,
+        "available": ctx.available_factors,
+        "unavailable": list(ctx.unavailable_factors),
     }
 
 
@@ -210,6 +249,7 @@ def compute(ctx: Context, shocks: dict[str, float], regimes: list[Regime], run_i
                       for aid, f in ctx.fits.items()},
             "weights": {h.asset_id: h.weight for h in ctx.holdings},
             "sources": ctx.sources(),
+            "factors_unavailable": list(ctx.unavailable_factors),
         },
         "outputs": _outputs(result, regimes),
         "entries": entries,

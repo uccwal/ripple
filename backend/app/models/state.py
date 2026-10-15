@@ -36,7 +36,7 @@ class PathNode(BaseModel):
     id: str = Field(description="n1, n2 ... 형식")
     label: str = Field(description="한국어 노드 이름, 14자 이내")
     layer: Layer
-    factor_id: str | None = Field(description="macro 노드가 대응하는 팩터 id (USDKRW, KOSPI, KOSPI_IT, US_EQ, DGS10, KTB3Y, WTI). 아니면 null")
+    factor_id: str | None = Field(description="macro 노드가 대응하는 팩터 id (제공된 팩터 목록 중 하나). macro 가 아니면 null")
     direction_text: str = Field(description="이 노드로 들어오는 영향 설명 한 줄 (예: '수출 감소 → 환율 (+)')")
 
 

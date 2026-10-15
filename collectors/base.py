@@ -254,7 +254,12 @@ def clip(s: Any, n: int) -> str:
 
 
 def upsert_events(session: Session, events: Iterable[Mapping[str, Any]]) -> int:
-    """PolicyEvent 를 event_id 기준으로 병합한다. 각 dict 의 키는 PolicyEvent 컬럼과 같다."""
+    """PolicyEvent 를 event_id 기준으로 병합한다. 각 dict 의 키는 PolicyEvent 컬럼과 같다.
+
+    이미 한국어로 구조화된 이벤트(title_orig 가 있음)는 LLM 이 채운 필드(title/summary/type/targets/value/value_text/relevance)를
+    덮어쓰지 않고 원문·출처·수집 시각만 갱신한다. 그렇지 않으면 매일 재수집할 때마다 영어 제목으로 되돌아간다.
+    relevance 는 수집기가 규칙으로 매긴 값이 있을 때만 쓴다 (LLM 평가가 있으면 그쪽이 우선).
+    """
     n = 0
     now = utcnow_naive()
     for e in events:
@@ -262,7 +267,17 @@ def upsert_events(session: Session, events: Iterable[Mapping[str, Any]]) -> int:
         if not e.get("event_id") or announced is None:
             log.warning("event_id 또는 announced_at 이 없어 건너뜀: %s", e.get("title"))
             continue
-        session.merge(PolicyEvent(
+        existing = session.get(PolicyEvent, e["event_id"])
+        if existing is not None and existing.title_orig:
+            existing.announced_at = announced
+            existing.source = clip(e.get("source", existing.source), _LEN["source"])
+            existing.source_url = e.get("source_url", "") or existing.source_url
+            existing.license = e.get("license", "") or existing.license
+            existing.raw_text = e.get("raw_text", "") or existing.raw_text
+            existing.collected_at = now
+            n += 1
+            continue
+        row = PolicyEvent(
             event_id=e["event_id"],
             country=clip(e.get("country", ""), _LEN["country"]),
             type=clip(e.get("type", "regulation"), _LEN["type"]),
@@ -278,7 +293,10 @@ def upsert_events(session: Session, events: Iterable[Mapping[str, Any]]) -> int:
             raw_text=e.get("raw_text", "") or "",
             is_demo=bool(e.get("is_demo", False)),
             collected_at=now,
-        ))
+        )
+        if e.get("relevance") in ("high", "mid", "low"):
+            row.relevance = e["relevance"]
+        session.merge(row)
         n += 1
     session.flush()
     return n

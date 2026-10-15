@@ -46,18 +46,20 @@ def run(since: date | None = None, only: list[str] | None = None) -> list[dict]:
             log.info(rep.line())
             reports.append({"collector": rep.collector, "status": rep.status, "message": rep.message, "counts": rep.counts})
             _state["reports"] = list(reports)
-        # 시계열에서 파생하는 이벤트 (한국은행 기준금리 결정)
-        from .derive_events import derive_bok_rate_events  # noqa: PLC0415
+        # 시계열에서 파생하는 이벤트 (한국은행 금통위·미국 FOMC 기준금리 결정)
+        from .derive_events import derive_bok_rate_events, derive_fed_rate_events  # noqa: PLC0415
 
-        try:
-            d = derive_bok_rate_events()
-            reports.append({"collector": "bok_rate_events", "status": "skipped" if d.get("skipped") else "ok",
-                            "message": "한국은행 기준금리 결정 이벤트 (ECOS 시계열 파생)" + (f" — {d['skipped']}" if d.get("skipped") else ""),
-                            "counts": {k: v for k, v in d.items() if k != "skipped"}})
-        except Exception as e:  # noqa: BLE001
-            log.exception("기준금리 이벤트 파생 실패")
-            reports.append({"collector": "bok_rate_events", "status": "error", "message": f"{type(e).__name__}: {e}", "counts": {}})
-        _state["reports"] = list(reports)
+        for name, fn, msg in (("bok_rate_events", derive_bok_rate_events, "한국은행 기준금리 결정 이벤트 (ECOS 시계열 파생)"),
+                              ("fed_rate_events", derive_fed_rate_events, "미국 연준(FOMC) 기준금리 결정 이벤트 (FRED 시계열 파생)")):
+            try:
+                d = fn()
+                reports.append({"collector": name, "status": "skipped" if d.get("skipped") else "ok",
+                                "message": msg + (f" — {d['skipped']}" if d.get("skipped") else ""),
+                                "counts": {k: v for k, v in d.items() if k != "skipped"}})
+            except Exception as e:  # noqa: BLE001
+                log.exception("기준금리 이벤트 파생 실패 (%s)", name)
+                reports.append({"collector": name, "status": "error", "message": f"{type(e).__name__}: {e}", "counts": {}})
+            _state["reports"] = list(reports)
         # 수집된 외국어 이벤트를 한국어로 구조화 (LLM 모드일 때만)
         from .localize import localize_pending  # noqa: PLC0415
 
@@ -114,21 +116,38 @@ def synthetic_remaining() -> bool:
         return bool(s.scalar(select(func.count()).select_from(Series).where(Series.source.like("SYNTHETIC%"))))
 
 
+def factor_series_incomplete() -> list[str]:
+    """팩터 카탈로그의 시리즈 중 없거나 회귀 최소 관측치(beta_min_obs)보다 짧은 것. 새 팩터를 추가하면 전체 기간 수집이 필요하다."""
+    from sqlalchemy import func, select  # noqa: PLC0415
+
+    from .engine.catalog import FACTORS  # noqa: PLC0415
+    from .models.tables import SeriesValue  # noqa: PLC0415
+
+    with session_scope() as s:
+        counts = dict(s.execute(select(SeriesValue.series_id, func.count()).group_by(SeriesValue.series_id)).all())
+    return [f.series_id for f in FACTORS if counts.get(f.series_id, 0) < settings.beta_min_obs]
+
+
+def data_incomplete() -> bool:
+    """합성 시계열이 남았거나 팩터 시리즈가 비어 있으면 True (전체 기간 수집 대상)."""
+    return synthetic_remaining() or bool(factor_series_incomplete())
+
+
 def _needs_retry() -> bool:
     if _state.get("error"):
         return True
     if any(r["status"] == "error" for r in _state.get("reports", [])):
         return True
     try:
-        return synthetic_remaining()
+        return data_incomplete()
     except Exception:  # noqa: BLE001
         return False
 
 
 def start_scheduler() -> None:
     """COLLECT_DAILY_HOUR_UTC 가 있으면: 기동 직후 한 번, 그 뒤 매일 그 시각에 수집한다.
-    합성 시계열이 남아 있거나(= API 키·활용신청 미완료) 실패한 수집기가 있으면 2시간마다 다시 시도해,
-    키가 활성화되는 즉시 사람 손 없이 실데이터로 바뀐다."""
+    합성 시계열이 남아 있거나(= API 키·활용신청 미완료), 팩터 시리즈가 비어 있거나(새 팩터 추가 직후), 실패한 수집기가 있으면
+    2시간마다 다시 시도해, 키가 활성화되는 즉시 사람 손 없이 실데이터로 바뀐다."""
     hour = settings.collect_daily_hour_utc
     if hour is None:
         return
@@ -138,8 +157,8 @@ def start_scheduler() -> None:
         first = True
         while True:
             if first:
-                # 합성 시계열이 남아 있으면 처음 채울 때 전체 기간(11년)을 받아야 회귀(최소 250일)가 가능하다.
-                # 전부 실데이터면 최근 N일만 갱신한다.
+                # 합성 시계열이 남아 있거나 새로 추가된 팩터 시리즈가 비어 있으면 전체 기간(11년)을 받아야 회귀(최소 250일)가 가능하다.
+                # 전부 채워져 있으면 최근 N일만 갱신한다.
                 full = _needs_retry()
                 since = date.today() - timedelta(days=365 * 11 if full else settings.collect_startup_days)
                 log.info("기동 수집 시작 (%s)", "전체 기간" if full else f"최근 {settings.collect_startup_days}일")

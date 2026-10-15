@@ -3,7 +3,7 @@
     PYTHONPATH=backend:. python -m collectors.federal_register --since 2025-01-01
 
 API: https://www.federalregister.gov/api/v1/documents.json  (API 키 불필요)
-  검색 조건: conditions[term]=…, conditions[agencies][]=trade-representative|commerce-department|international-trade-administration,
+  검색 조건: conditions[term]=…, conditions[agencies][]=USTR|commerce-department|international-trade-administration|industry-and-security-bureau(BIS),
             conditions[type][]=PRESDOCU|RULE, conditions[publication_date][gte|lte]=YYYY-MM-DD, per_page, page, order=newest
   응답: {"count": N, "total_pages": k, "next_page_url": …,
          "results": [{"document_number": "2025-01234", "title": …, "abstract": …, "type": "Presidential Document",
@@ -43,10 +43,12 @@ PER_PAGE = 100
 MAX_PAGES = 20  # 검색어당 상한 (과도한 수집 방지)
 
 # 검색어·기관·문서유형 (편집 가능)
-SEARCH_TERMS: list[str] = ["tariff", "duties", "\"Section 232\"", "\"Section 301\"", "\"import restriction\""]
+SEARCH_TERMS: list[str] = ["tariff", "duties", "\"Section 232\"", "\"Section 301\"", "\"import restriction\"",
+                           "\"export controls\"", "\"Entity List\"", "semiconductor"]
 # Federal Register 기관 slug. USTR 의 slug 는 "trade-representative-office-of-united-states" 다.
 # slug 가 틀리면 API 가 400 {"errors":{"agencies":"invalid value"}} 을 돌려주므로, 그 경우 기관 필터 없이 다시 조회한다.
-AGENCIES: list[str] = ["trade-representative-office-of-united-states", "commerce-department", "international-trade-administration"]
+AGENCIES: list[str] = ["trade-representative-office-of-united-states", "commerce-department", "international-trade-administration",
+                       "industry-and-security-bureau"]
 DOC_TYPES: list[str] = ["PRESDOCU", "RULE"]
 FIELDS: list[str] = ["document_number", "title", "abstract", "type", "publication_date", "html_url",
                      "body_html_url", "agencies", "action", "subtype"]
@@ -68,6 +70,18 @@ TARGET_KEYWORDS: dict[str, tuple[str, ...]] = {
     "all_imports": ("all imports", "all articles imported", "reciprocal tariff", "all trading partners"),
 }
 _PERCENT_RE = re.compile(r"(\d{1,3}(?:\.\d+)?)\s*(?:%|percent(?:age point)?s?)", re.IGNORECASE)
+
+# 규칙 기반 관련성(한국 포트폴리오 관점). 수집 직후 LLM(한국어 구조화)이 다시 매기지만, LLM 이 없거나 실패해도
+# 대시보드 필터가 동작하도록 수집기 단계에서 1차 등급을 매긴다.
+HIGH_KEYWORDS = ("korea", "semiconductor", "chip", "automobile", "passenger vehicle", "auto part", "steel", "aluminum",
+                 "battery", "display", "reciprocal", "all imports", "all articles imported", "trading partners",
+                 "export controls", "entity list", "advanced computing", "section 232", "section 301")
+LOW_PATTERNS = ("antidumping duty order", "countervailing duty order", "administrative review", "preliminary determination",
+                "final determination", "final results", "scope ruling", "scope inquiry", "changed circumstances",
+                "sunset review", "five-year", "circumvention", "correction", "technical amendment", "notice of court decision",
+                "continuation of", "initiation of", "rescission", "amended final", "postponement")
+LOW_IF_ONLY = ("fishing", "textile", "apparel", "honey", "shrimp", "mushroom", "garlic", "pasta", "paper", "tissue", "mattress",
+               "furniture", "cabinet", "nails", "wire", "pipe", "tubing", "fittings", "candle", "ribbon", "bag")
 
 
 # ----------------------------------------------------------------------------
@@ -96,6 +110,23 @@ def extract_percent(text: str) -> tuple[float | None, str]:
     return v, txt
 
 
+def score_relevance(title: str, abstract: str, doc_type: str, event_type: str, targets: list[str]) -> str:
+    """high | mid | low. 대통령 문서·광범위 관세·한국/반도체/자동차/철강·수출통제는 high, 개별 기업 반덤핑 절차 공고는 low."""
+    t = f"{title}\n{abstract}".lower()
+    title_l = title.lower()
+    is_pres = "presidential" in (doc_type or "").lower()
+    if any(p in title_l for p in LOW_PATTERNS) and not is_pres:
+        return "low"
+    if is_pres and event_type == "tariff":
+        return "high"
+    if any(k in t for k in HIGH_KEYWORDS) or any(x in targets for x in ("semiconductor", "semiconductor_equipment", "automobile",
+                                                                        "steel", "aluminum", "battery", "display", "all_imports")):
+        return "high" if (is_pres or event_type == "tariff" or "export control" in t or "entity list" in t) else "mid"
+    if any(k in title_l for k in LOW_IF_ONLY):
+        return "low"
+    return "mid" if event_type == "tariff" else "low"
+
+
 def document_to_event(doc: dict[str, Any]) -> dict[str, Any] | None:
     """Federal Register 문서 1건 → PolicyEvent dict. 필수 필드가 없으면 None."""
     num = doc.get("document_number")
@@ -115,13 +146,16 @@ def document_to_event(doc: dict[str, Any]) -> dict[str, Any] | None:
         raw_parts.append(f"문서 유형: {doc['type']}" + (f" / {doc['subtype']}" if doc.get("subtype") else ""))
     if body_url:
         raw_parts.append(f"본문: {body_url}")
+    etype = classify(text)
+    targets = extract_targets(text)
     return {
         "event_id": f"fr_{num}",
         "country": "US",
-        "type": classify(text),
+        "type": etype,
         "title": title,
         "summary": abstract,
-        "targets": extract_targets(text),
+        "targets": targets,
+        "relevance": score_relevance(title, abstract, doc.get("type") or "", etype, targets),
         "value": value,
         "value_text": value_text,
         "announced_at": pub,
@@ -198,8 +232,9 @@ def run(session: Session, rng: DateRange, *, client: httpx.Client | None = None,
     events = [e for e in (document_to_event(d) for d in docs) if e]
     n = base.upsert_events(session, events)
     by_type = {t: sum(1 for e in events if e["type"] == t) for t in ("tariff", "regulation")}
-    log.info("Federal Register: 문서 %d건 → 이벤트 %d건 (%s)", len(docs), n, by_type)
-    return {"documents": len(docs), "events": n, **by_type}
+    by_rel = {f"relevance_{r}": sum(1 for e in events if e["relevance"] == r) for r in ("high", "mid", "low")}
+    log.info("Federal Register: 문서 %d건 → 이벤트 %d건 (%s, %s)", len(docs), n, by_type, by_rel)
+    return {"documents": len(docs), "events": n, **by_type, **by_rel}
 
 
 def main(argv: list[str] | None = None) -> None:

@@ -19,10 +19,12 @@
 | factor_id | 이름 | unit |
 | --- | --- | --- |
 | `USDKRW` | 원/달러 환율 | % |
+| `DXY_BROAD` | 달러 인덱스 (광의, 연준 산출 DTWEXBGS) | % |
 | `KOSPI` | KOSPI | % |
 | `KOSPI_IT` | KOSPI IT 업종 | % |
 | `US_EQ` | 미국 주식 (국내 상장 S&P 500 ETF 대리) | % |
 | `DGS10` | 미국 국채 10년 | %p |
+| `DGS2` | 미국 국채 2년 | %p |
 | `KTB3Y` | 국고채 3년 | %p |
 | `WTI` | WTI 유가 | % |
 
@@ -234,16 +236,22 @@
 {
   "llm_mode": "anthropic | offline", "model_default": "claude-haiku-5-5", "model_impact_mapper": "…",
   "synthetic_remaining": ["KOSPI_IT"],
+  "quality_issues": ["KTB3Y"],
   "series": [{"series_id": "USDKRW", "name": "원/달러 환율", "source": "한국은행 ECOS", "unit": "KRW", "license": "…", "source_url": "…",
               "count": 2705, "first_date": "2015-10-19", "last_date": "2026-10-14", "collected_at": "2026-10-14T08:29:10",
-              "synthetic": false, "in_use": true, "role": "factor | asset | other", "factor_name": "원/달러 환율"}],
+              "synthetic": false, "in_use": true, "role": "factor | asset | other", "factor_name": "원/달러 환율",
+              "stale_bdays": 1, "coverage": 0.962, "quality": "ok | stale | gappy | synthetic | empty"}],
   "events": [{"source": "Federal Register", "is_demo": false, "count": 321, "first_date": "…", "last_date": "…"}],
-  "collectors": [{"name": "fred", "description": "FRED → DGS10, WTI", "required_key": "FRED_API_KEY", "key_present": true}],
+  "collectors": [{"name": "fred", "description": "FRED → DGS10, DGS2, DXY_BROAD, WTI, (FED_TARGET_UPPER)", "required_key": "FRED_API_KEY", "key_present": true}],
   "collect": {"running": false, "started_at": "…", "finished_at": "…", "next_scheduled_at": "…", "error": null,
               "reports": [{"collector": "krx_prices", "status": "ok | skipped | error", "message": "…", "counts": {"KOSPI": 1662}}]},
   "admin_enabled": true, "daily_hour_utc": 0
 }
 ```
+
+시계열 품질 필드: `stale_bdays` = 최종 관측일 이후 지난 영업일 수, `coverage` = 기간 내 영업일 대비 관측 비율(0~1).
+`quality` 는 `synthetic`(합성) → `stale`(5영업일 초과 지연) → `gappy`(커버리지 85% 미만) → `ok` 순으로 판정하며 값이 없으면 `empty`.
+계단형 시계열(`BOK_BASE_RATE`, `FED_TARGET_UPPER`)은 지연 20영업일까지 정상으로 본다. `quality_issues` 는 사용 중(`in_use`)인데 `stale|gappy|empty` 인 시리즈 id 목록.
 
 ## 관리용 (헤더 `X-Admin-Token` 또는 `?token=`)
 

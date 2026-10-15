@@ -6,6 +6,7 @@
  R3 수치 일관성: 자산 기여 합 = 포트폴리오 손익, 범위가 추정치를 포함, 충격값이 calc_log 입력과 일치.
  R4 보고서 인용: 보고서의 모든 숫자가 calc_log.outputs 키에서 왔는지 (Report Writer 단계에서 다시 검사).
  W1 경고: low 단계 존재(근거 불충분), 과거 최대 변동폭 초과, 합성 데이터 사용.
+ W2 경고: 충격값 부호가 경로의 거시 변수 노드 방향(라벨의 상승/하락)과 다름 → Scenario Builder.
 """
 from __future__ import annotations
 
@@ -17,6 +18,21 @@ from ..models.state import RunState
 
 # 한글은 \w 에 포함되므로 ASCII 영숫자만 경계로 본다 → "20영업일", "5개" 도 숫자로 잡힌다
 NUM_RE = re.compile(r"(?<![{A-Za-z0-9_.])[+\-−]?\d[\d,]*(?:\.\d+)?(?![A-Za-z0-9_}])")
+
+
+def label_sign(label: str, factor_id: str | None = None) -> int | None:
+    """노드 라벨에서 방향을 읽는다. +1 상승, −1 하락, None 불명. 환율은 '원화 약세'=상승으로 해석한다."""
+    t = label or ""
+    if factor_id == "USDKRW" and "원화" in t:
+        if any(w in t for w in ("강세", "절상")):
+            return -1
+        if any(w in t for w in ("약세", "절하", "하락", "급락")):
+            return 1
+    if any(w in t for w in ("상승", "급등", "인상", "증가", "확대", "강세", "절하")):
+        return 1
+    if any(w in t for w in ("하락", "급락", "인하", "감소", "축소", "약세", "절상")):
+        return -1
+    return None
 
 
 def check(state: RunState, synthetic: bool) -> dict:
@@ -51,6 +67,14 @@ def check(state: RunState, synthetic: bool) -> dict:
             issues.append(_err("shock_not_in_path", "Scenario Builder", f"경로에 없는 팩터에 충격이 들어갔습니다: {', '.join(sorted(extra))}"))
 
     scenario = state.get("scenario") or {}
+    if graph:
+        node_sign = {n["factor_id"]: label_sign(n["label"], n["factor_id"]) for n in graph["nodes"] if n.get("factor_id")}
+        mismatch = [s["variable"] for s in scenario.get("shocks", [])
+                    if node_sign.get(s["variable"]) is not None and s["change"] != 0
+                    and (1 if s["change"] > 0 else -1) != node_sign[s["variable"]]]
+        if mismatch:
+            issues.append(_warn("direction_mismatch", "Scenario Builder",
+                                f"충격값 부호가 경로 노드의 방향과 다릅니다: {', '.join(sorted(mismatch))}"))
     over = [s["variable"] for s in scenario.get("shocks", []) if s.get("over_hist")]
     if over:
         issues.append(_warn("over_hist", "Scenario Builder", f"과거 최대 변동폭 초과: {', '.join(over)}"))
