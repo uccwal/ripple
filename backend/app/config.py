@@ -13,6 +13,14 @@ DATA_DIR = REPO_ROOT / "data"
 load_dotenv(REPO_ROOT / ".env")
 
 
+def normalize_db_url(url: str) -> str:
+    """Render 등이 주는 postgres:// · postgresql:// · postgresql+psycopg2:// 를 psycopg 3 드라이버 주소로 통일한다."""
+    for prefix in ("postgres://", "postgresql://", "postgresql+psycopg2://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
 def _float(name: str, default: float) -> float:
     try:
         return float(os.getenv(name) or default)
@@ -23,7 +31,7 @@ def _float(name: str, default: float) -> float:
 @dataclass(frozen=True)
 class Settings:
     # .env 에 빈 값으로 적혀 있어도 기본값을 쓴다
-    database_url: str = os.getenv("DATABASE_URL") or f"sqlite:///{REPO_ROOT / 'ripple.db'}"
+    database_url: str = normalize_db_url(os.getenv("DATABASE_URL") or f"sqlite:///{REPO_ROOT / 'ripple.db'}")
     anthropic_api_key: str | None = os.getenv("ANTHROPIC_API_KEY") or None
     # LLM_MODE=offline 이면 API 키가 있어도 LLM을 호출하지 않는다 (규칙 기반 Agent로 실행).
     llm_mode_override: str | None = os.getenv("LLM_MODE") or None
