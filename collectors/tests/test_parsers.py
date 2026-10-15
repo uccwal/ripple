@@ -623,8 +623,8 @@ def test_kr_run_api_mode(session):
         return httpx.Response(200, text=KR_API_XML)
 
     with base.make_client(transport=httpx.MockTransport(handler)) as c:
-        counts = korea_briefing.run(session, DateRange(date(2025, 12, 25), date(2025, 12, 31)), api_key="k", client=c)
-    assert seen_starts == ["20251229", "20251226", "20251225"]  # 3일 창, 최신부터
+        counts = korea_briefing.run(session, DateRange(date(2025, 4, 1), date(2025, 4, 7)), api_key="k", client=c)
+    assert seen_starts == ["20250405", "20250402", "20250401"]  # 3일 창, 최신부터
     assert counts["mode"] == "data.go.kr API" and counts["events"] == 1
 
 
