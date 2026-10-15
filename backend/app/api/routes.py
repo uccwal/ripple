@@ -356,10 +356,13 @@ def admin_collect_run_get(token: str | None = Query(default=None), since: date |
 # 값이 가끔만 바뀌는 계단형 시계열 (기준금리). 커버리지·지연 판정을 완화한다.
 STEP_SERIES = {"BOK_BASE_RATE", "FED_TARGET_UPPER"}
 STALE_BDAYS = 5  # 최종 관측일이 오늘보다 이 영업일 이상 뒤처지면 '지연' (공표 지연 1~2일은 정상)
+# 원 기관의 공표 주기가 긴 시리즈는 허용 지연을 늘린다. WTI(EIA)는 FRED 에 주 1회 반영되어 최대 7~8영업일 뒤처진다.
+STALE_TOLERANCE = {"WTI": 10}
 MIN_COVERAGE = 0.85  # 기간 내 영업일 대비 관측 비율이 이보다 낮으면 '결측 많음' (한국·미국 휴장일 차이 ≈ 5%)
 
 
-def _series_quality(count: int, first: date | None, last: date | None, today: date, synthetic: bool, *, step_like: bool) -> dict:
+def _series_quality(count: int, first: date | None, last: date | None, today: date, synthetic: bool, *, step_like: bool,
+                    stale_limit: int = STALE_BDAYS) -> dict:
     """신선도·커버리지 지표. stale_bdays: 최종 관측일 이후 영업일 수, coverage: 관측 수 / 기간 영업일 수."""
     import numpy as np  # noqa: PLC0415
 
@@ -370,7 +373,7 @@ def _series_quality(count: int, first: date | None, last: date | None, today: da
     coverage = round(min(count / bdays, 1.0), 3) if bdays > 0 else None
     if synthetic:
         quality = "synthetic"
-    elif stale > STALE_BDAYS and not step_like:
+    elif stale > stale_limit and not step_like:
         quality = "stale"
     elif coverage is not None and coverage < MIN_COVERAGE and not step_like:
         quality = "gappy"
@@ -397,7 +400,8 @@ def data_status(s: Session = Depends(get_session)):
     today = date.today()
     for sid, name, source, unit, lic, url, n, d0, d1, collected in rows:
         synthetic = source.startswith("SYNTHETIC")
-        q = _series_quality(n, d0, d1, today, synthetic, step_like=sid in STEP_SERIES)
+        q = _series_quality(n, d0, d1, today, synthetic, step_like=sid in STEP_SERIES,
+                            stale_limit=STALE_TOLERANCE.get(sid, STALE_BDAYS))
         series.append({
             "series_id": sid, "name": name, "source": source, "unit": unit, "license": lic, "source_url": url,
             "count": n, "first_date": d0.isoformat() if d0 else None, "last_date": d1.isoformat() if d1 else None,

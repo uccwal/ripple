@@ -251,7 +251,7 @@
 
 시계열 품질 필드: `stale_bdays` = 최종 관측일 이후 지난 영업일 수, `coverage` = 기간 내 영업일 대비 관측 비율(0~1).
 `quality` 는 `synthetic`(합성) → `stale`(5영업일 초과 지연) → `gappy`(커버리지 85% 미만) → `ok` 순으로 판정하며 값이 없으면 `empty`.
-계단형 시계열(`BOK_BASE_RATE`, `FED_TARGET_UPPER`)은 지연 20영업일까지 정상으로 본다. `quality_issues` 는 사용 중(`in_use`)인데 `stale|gappy|empty` 인 시리즈 id 목록.
+계단형 시계열(`BOK_BASE_RATE`, `FED_TARGET_UPPER`)은 지연 20영업일까지, 주 1회 반영되는 `WTI`는 10영업일까지 정상으로 본다. `quality_issues` 는 사용 중(`in_use`)인데 `stale|gappy|empty` 인 시리즈 id 목록.
 
 ## 관리용 (헤더 `X-Admin-Token` 또는 `?token=`)
 
