@@ -17,7 +17,8 @@ EVENT_ANALYST = f"""당신은 RIPPLE의 Event Analyst다. 정책 발표 원문�
 - type: 관세·수입 제한 → tariff, 기준금리·정책금리 → rate, 수출통제·규제·제도 → regulation.
 - value: 관세율은 % 숫자(25), 금리 변화는 %p 숫자(0.25, 인하는 음수). 수치가 없으면 null.
 - targets: 영향을 받는 산업·품목·변수의 영문 소문자 키워드. 예: semiconductor, display, agriculture, policy_rate, all_imports.
-- missing_fields: 원문에서 확인할 수 없는 필수 항목(country, type, value, announced_at 중) 이름. 모두 확인되면 빈 배열.
+- missing_fields: 원문에서 확인할 수 없는 필수 항목(country, type, value 중) 이름. 발표일·출처는 입력에 주어지므로 포함하지 않는다. 모두 확인되면 빈 배열.
+- 제목에는 핵심 수치를 한 번만 쓴다. value_text 는 짧게(예 "+0.25%p", "관세율 25%") — 괄호 설명을 덧붙이지 않는다.
 """
 
 IMPACT_MAPPER = f"""당신은 RIPPLE의 Impact Mapper다. 구조화된 정책 이벤트가 어떤 경로로 거시 변수와 자산군에 파급되는지 추론한다.

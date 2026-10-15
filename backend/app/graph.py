@@ -72,7 +72,10 @@ def build(rc: RunContext):
             raise
         rc.steps.finish(step, {"summary": meta["summary"]}, meta["model"], meta["tokens"], meta.get("note", ""))
         head = event["title"] if event["title"].startswith(event["country_name"]) else f"{event['country_name']} {event['title']}"
-        return {"event": event, "title": head + (f" ({event['value_text']})" if event["value_text"] else "")}
+        vt = event.get("value_text") or ""
+        core = vt.split(" (")[0].strip()  # "+0.25%p (2.75%→3.00%)" → "+0.25%p"
+        dup = not vt or vt in head or (core and core.replace("−", "-") in head.replace("−", "-"))
+        return {"event": event, "title": head if dup else f"{head} ({vt})"}
 
     def node_impact_mapper(state: RunState) -> dict:
         attempt = state.get("retries", {}).get("impact", 0) + 1
