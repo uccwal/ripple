@@ -49,7 +49,7 @@ def render_html(md: str, state: dict, portfolio) -> str:
 </style></head><body>
 <button class="print" onclick="window.print()">PDF로 저장 (인쇄)</button>
 <div class="kicker">RIPPLE 정책 파급 분석 보고서</div>
-<div class="meta"><span>{html.escape(portfolio.name if portfolio else '')}</span><span>·</span><span>분석 기간 {run.horizon_days}영업일</span><span class="badge">{badge[0]}</span></div>
+<div class="meta"><span>{html.escape(portfolio.name if portfolio else '')}</span><span>·</span><span>분석 기간 {state.get("horizon_days", "")}영업일</span><span class="badge">{badge[0]}</span></div>
 {body}
 <div class="foot">이 보고서의 모든 수치는 Risk Engine 계산 로그(calc_log)에서 인용했습니다. LLM은 문장만 작성했습니다. · RIPPLE</div>
 </body></html>"""
