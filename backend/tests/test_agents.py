@@ -153,3 +153,15 @@ def test_parse_natural_year_and_dollar_phrases_do_not_hijack_factors():
     assert parse_natural("달러 3% 약세") == {"USDKRW": -3.0}
     assert parse_natural("달러 약세 3%") == {"USDKRW": -3.0}
     assert parse_natural("달러 인덱스 3% 약세") == {"DXY_BROAD": -3.0}
+
+
+@pytest.mark.parametrize("title,vt,expected", [
+    ("반도체 수입 관세 25% 부과 발표", "관세율 25%", "미국 반도체 수입 관세 25% 부과 발표"),
+    ("반도체 수입품 관세 부과", "관세율 25%", "미국 반도체 수입품 관세 부과 (관세율 25%)"),
+    ("기준금리 0.25%p 인상", "+0.25%p (2.75%→3.00%)", "미국 기준금리 0.25%p 인상"),
+    ("미국 상호관세 발표", "", "미국 상호관세 발표"),
+])
+def test_compose_title_avoids_duplicate_numbers(title, vt, expected):
+    from app.graph import compose_title
+
+    assert compose_title({"title": title, "country_name": "미국", "value_text": vt}) == expected

@@ -41,10 +41,12 @@ with sync_playwright() as p:
     shoot(page, "/runs", "03_runs")
     shoot(page, "/portfolios", "04_portfolios")
     shoot(page, "/backtest", "05_backtest")
+    shoot(page, "/new", "06_new")
     for i, rid in enumerate(run_ids):
         for tab in ("path", "scen", "result", "report"):
             shoot(page, f"/runs/{rid}?tab={tab}", f"1{i}_{tab}_{rid[-4:]}", wait=2500)
     if run_ids:
+        shoot(page, f"/api/runs/{run_ids[0]}/report?format=html", f"19_report_html_{run_ids[0][-4:]}", wait=800)
         page.goto(f"{base}/runs/{run_ids[0]}?tab=result", wait_until="networkidle")
         page.wait_for_timeout(1500)
         btn = page.get_by_label("포트폴리오 예상 손익").first

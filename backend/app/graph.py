@@ -71,11 +71,7 @@ def build(rc: RunContext):
             rc.steps.fail(step, str(e))
             raise
         rc.steps.finish(step, {"summary": meta["summary"]}, meta["model"], meta["tokens"], meta.get("note", ""))
-        head = event["title"] if event["title"].startswith(event["country_name"]) else f"{event['country_name']} {event['title']}"
-        vt = event.get("value_text") or ""
-        core = vt.split(" (")[0].strip()  # "+0.25%p (2.75%→3.00%)" → "+0.25%p"
-        dup = not vt or vt in head or (core and core.replace("−", "-") in head.replace("−", "-"))
-        return {"event": event, "title": head if dup else f"{head} ({vt})"}
+        return {"event": event, "title": compose_title(event)}
 
     def node_impact_mapper(state: RunState) -> dict:
         attempt = state.get("retries", {}).get("impact", 0) + 1
@@ -252,6 +248,21 @@ def build(rc: RunContext):
     g.add_conditional_edges("validator", after_validator, {"impact_mapper": "impact_mapper", "regime_finder": "regime_finder", "report_writer": "report_writer"})
     g.add_edge("report_writer", END)
     return g.compile()
+
+
+def compose_title(event: dict) -> str:
+    """실행 제목: '국가 제목 (핵심 수치)'. 제목에 같은 수치가 이미 있으면 붙이지 않는다 ("관세 25% 부과 (관세율 25%)" 방지)."""
+    import re
+
+    head = event["title"] if event["title"].startswith(event["country_name"]) else f"{event['country_name']} {event['title']}"
+    vt = (event.get("value_text") or "").strip()
+    if not vt:
+        return head
+    norm = lambda x: x.replace("−", "-").replace(" ", "")  # noqa: E731
+    core = vt.split(" (")[0].strip()  # "+0.25%p (2.75%→3.00%)" → "+0.25%p"
+    nums = re.findall(r"[+\-−]?\d+(?:\.\d+)?\s*(?:%p|%|bp)", vt)
+    dup = norm(vt) in norm(head) or (core and norm(core) in norm(head)) or any(norm(n).lstrip("+") in norm(head) for n in nums)
+    return head if dup else f"{head} ({vt})"
 
 
 def _allowed_literals(state: RunState) -> list[str]:

@@ -217,6 +217,8 @@
 | 데이터 모델 9개 테이블, 가상 포트폴리오 2개, 초기 이벤트 6개 | 완료 |
 | Risk Engine(OLS 베타·충격 적용·범위·유사 국면·헤지 규칙·계산 로그) | 완료 |
 | Agent 7개 + LangGraph(반려 루프·재시도 상한·재계산 진입) | 완료 (LLM 모드 + offline 규칙 모드) |
+| 실데이터 수집 5종·시계열 24종·일일 자동 수집·수집 직후 자동 사전분석 | 완료 (Render 배포, Postgres 영구 저장) |
+| 사후 검증(추정 vs 실제, 방향 적중률) 화면·API, 포트폴리오 비교 | 완료 |
 | REST API 12개 + SSE 실행 스트림 + 보고서 Markdown/HTML | 완료 |
 | 수집기 5개 (FRED·ECOS·금융위 시세·Federal Register·정책브리핑) | 4개 실키 연동 완료·일일 자동 수집, 정책브리핑은 API 승인 대기 |
 | 화면 S1~S7 (Vue 3 · Tailwind · ECharts · Vue Flow), GitHub Pages + Render 배포 | 완료 (데모 URL 가동) |

@@ -89,7 +89,11 @@ def run(since: date | None = None, only: list[str] | None = None) -> list[dict]:
 
         try:
             a = auto_analyze()
-            reason = a.get("skipped") or ("대상 없음" if not a.get("started") else None)
+            # 사후 검증 표본이 아직 없으면 과거(최대 400일) 관련성 high 이벤트를 몇 건 분석해 적중률 KPI 를 채운다 (한 번만 효과)
+            if settings.auto_backfill_max > 0 and not a.get("skipped") and _backtest_cases() == 0:
+                b = auto_analyze(max_runs=settings.auto_backfill_max, days=400)
+                a = {**a, "backfill_started": b.get("started", 0), "backfill_done": b.get("done", 0)}
+            reason = a.get("skipped") or ("대상 없음" if not (a.get("started") or a.get("backfill_started")) else None)
             reports.append({"collector": "auto_analyze", "status": "skipped" if reason else "ok",
                             "message": "신규 이벤트 자동 사전분석" + (f" ({reason})" if reason else ""),
                             "counts": {k: v for k, v in a.items() if k != "skipped"}})
@@ -105,6 +109,21 @@ def run(since: date | None = None, only: list[str] | None = None) -> list[dict]:
     finally:
         _state.update(running=False, finished_at=utcnow().isoformat())
         _lock.release()
+
+
+def _backtest_cases() -> int:
+    """사후 검증이 완료된 이벤트 분석 수 (과거 이벤트 백필 여부 판단용)."""
+    from sqlalchemy import select  # noqa: PLC0415
+
+    from .models.tables import Run  # noqa: PLC0415
+
+    n = 0
+    with session_scope() as s:
+        for st in s.scalars(select(Run.state).where(Run.entry == "event", Run.status.in_(("done", "partial")))):
+            act = ((st or {}).get("result") or {}).get("actual")
+            if act and act.get("complete"):
+                n += 1
+    return n
 
 
 def start_background(since: date | None = None, only: list[str] | None = None) -> bool:

@@ -64,6 +64,8 @@ class Settings:
     auto_analyze_max: int = int(os.getenv("AUTO_ANALYZE_MAX") or 5)
     auto_analyze_days: int = int(os.getenv("AUTO_ANALYZE_DAYS") or 7)
     auto_analyze_portfolio: str = os.getenv("AUTO_ANALYZE_PORTFOLIO") or "pf_a"
+    # 사후 검증 표본이 없을 때 과거(최대 400일) 관련성 high 이벤트를 몇 건 미리 분석해 적중률을 채운다 (0 이면 끔)
+    auto_backfill_max: int = int(os.getenv("AUTO_BACKFILL_MAX") or 10)
 
     fred_api_key: str | None = os.getenv("FRED_API_KEY") or None
     ecos_api_key: str | None = os.getenv("ECOS_API_KEY") or None
