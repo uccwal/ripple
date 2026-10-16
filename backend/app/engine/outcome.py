@@ -102,9 +102,23 @@ def cross_portfolio(session: Session, current_portfolio_id: str, as_of: date, ho
                          "range": None, "worst_asset": None, "worst_contribution": None, "current": False, "error": str(e)})
             continue
         r = out["result"]
-        worst = next((a for a in r["by_asset"] if a["asset_id"] == (r["top_contributors"][0] if r["top_contributors"] else None)), None)
+        losers = [a for a in r["by_asset"] if a["contribution"] < 0]
+        worst = min(losers, key=lambda a: a["contribution"]) if losers else None
         rows.append({"portfolio_id": pf.portfolio_id, "name": pf.name, "aum": pf.aum, "pnl": r["portfolio_pnl"],
                      "amount": r["pnl_amount"], "range": r["range"],
                      "worst_asset": worst["name"] if worst else None,
                      "worst_contribution": worst["contribution"] if worst else None, "current": False, "error": None})
     return rows
+
+
+def summarize_cases(cases: list[dict]) -> dict:
+    """사후 검증 사례 목록 → 적중률·평균 오차 집계 (API 는 사례를 모으기만 하고 계산은 여기서)."""
+    judged = [c for c in cases if c.get("direction_hit") is not None]
+    errs = [c["abs_error"] for c in cases if c.get("abs_error") is not None]
+    frates = [c["factor_hit_rate"] for c in cases if c.get("factor_hit_rate") is not None]
+    return {
+        "n_cases": len(cases), "n_judged": len(judged),
+        "direction_hit_rate": (sum(1 for c in judged if c["direction_hit"]) / len(judged)) if judged else None,
+        "mean_abs_error": (sum(errs) / len(errs)) if errs else None,
+        "factor_hit_rate": (sum(frates) / len(frates)) if frates else None,
+    }

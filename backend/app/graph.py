@@ -134,7 +134,12 @@ def build(rc: RunContext):
                                                     ctx.horizon, shocks, out["result"]["portfolio_pnl"])
                 except Exception as e:  # noqa: BLE001  사후 검증은 보조 정보라 실패해도 분석을 멈추지 않는다
                     log.warning("사후 검증 계산 실패: %s", e)
-            cross = outcome.cross_portfolio(rc.session, ctx.portfolio.portfolio_id, ctx.as_of, ctx.horizon, shocks, state["run_id"])
+            try:
+                cross = outcome.cross_portfolio(rc.session, ctx.portfolio.portfolio_id, ctx.as_of, ctx.horizon, shocks, state["run_id"])
+            except Exception as e:  # noqa: BLE001  보조 정보
+                log.warning("포트폴리오 비교 계산 실패: %s", e)
+                rc.session.rollback()
+                cross = []
             risk.attach_extras(out, ctx, actual, cross)
         except Exception as e:
             rc.steps.fail(step, str(e))
@@ -387,11 +392,21 @@ def execute(run_id: str) -> None:
             session.rollback()
             _save_final_state(run_id, final_status, final_error, final_state)
         runner.mark_done(run_id)
-        timeline = runner.build_timeline(session, run)
-        runner.publish(run_id, "run_finished", {"run_id": run_id, "status": run.status, "error": run.error,
-                                                "elapsed_ms": runner.elapsed_ms(run), "current": None, "step": None,
-                                                "steps": timeline, "retry_loops": runner.retry_loops(session, run)})
         session.close()
+        # 타임라인·SSE 종료 알림은 새 세션으로 (롤백된 세션·만료된 인스턴스를 다시 쓰지 않는다)
+        s2 = SessionLocal()
+        try:
+            r2 = s2.get(Run, run_id)
+            if r2 is not None:
+                runner.publish(run_id, "run_finished", {"run_id": run_id, "status": r2.status, "error": r2.error,
+                                                        "elapsed_ms": runner.elapsed_ms(r2), "current": None, "step": None,
+                                                        "steps": runner.build_timeline(s2, r2), "retry_loops": runner.retry_loops(s2, r2)})
+        except Exception as e:  # noqa: BLE001
+            log.error("run %s: 종료 알림 실패: %s", run_id, e)
+            runner.publish(run_id, "run_finished", {"run_id": run_id, "status": final_status, "error": final_error,
+                                                    "elapsed_ms": None, "current": None, "step": None, "steps": [], "retry_loops": []})
+        finally:
+            s2.close()
 
 
 def create_run(session: Session, entry: str, portfolio_id: str, event_id: str | None, scenario_text: str | None,

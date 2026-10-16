@@ -284,6 +284,17 @@ def upsert_events(session: Session, events: Iterable[Mapping[str, Any]]) -> int:
             log.warning("event_id 또는 announced_at 이 없어 건너뜀: %s", e.get("title"))
             continue
         existing = session.get(PolicyEvent, e["event_id"])
+        if existing is not None and existing.relevance and not existing.title_orig:
+            # 한국어 원문 이벤트: 제목·요약은 수집기 값으로 갱신하되 Claude 가 매긴 유형·대상·관련성은 지킨다
+            existing.title = clip(e.get("title", existing.title), _LEN["title"])
+            existing.summary = e.get("summary", "") or existing.summary
+            existing.announced_at = announced
+            existing.source_url = e.get("source_url", "") or existing.source_url
+            existing.license = e.get("license", "") or existing.license
+            existing.raw_text = e.get("raw_text", "") or existing.raw_text
+            existing.collected_at = now
+            n += 1
+            continue
         if existing is not None and existing.title_orig:
             existing.announced_at = announced
             existing.source = clip(e.get("source", existing.source), _LEN["source"])

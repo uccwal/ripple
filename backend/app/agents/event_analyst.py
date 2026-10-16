@@ -44,6 +44,8 @@ def run(state: RunState, ev: PolicyEvent) -> tuple[dict, dict]:
     if "value" in missing and (parsed.value is not None or parsed.type == "regulation"):
         missing.remove("value")  # 규제·수출통제는 수치가 없는 게 정상이라 누락이 아니다
     parsed.missing_fields = missing
+    if parsed.value is None and not re.search(r"\d", parsed.value_text or ""):
+        parsed.value_text = ""  # "수치 미확인" 같은 설명문이 제목에 붙지 않게 — 수치가 없으면 비운다
     event = {
         "event_id": ev.event_id, "country": parsed.country, "country_name": COUNTRY_NAME.get(parsed.country, parsed.country),
         "type": parsed.type, "type_name": TYPE_NAME[parsed.type], "title": parsed.title, "summary": parsed.summary,

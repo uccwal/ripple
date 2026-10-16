@@ -262,13 +262,19 @@ def compute(ctx: Context, shocks: dict[str, float], regimes: list[Regime], run_i
             "sources": ctx.sources(),
             "factors_unavailable": list(ctx.unavailable_factors),
         },
-        "outputs": _outputs(result, regimes),
+        "outputs": _outputs(result, regimes, {k: v for k, v in shocks.items() if k not in ctx.unavailable_factors}),
         "entries": entries,
     }
     return {"result": result, "calc_log": calc_log}
 
 
-def _outputs(result: dict, regimes: list[Regime]) -> dict:
+def _worst_loss_asset(by_asset: list[dict]) -> dict | None:
+    """손실(기여 < 0)이 가장 큰 자산. 손실 자산이 없으면 None."""
+    losers = [a for a in by_asset if a["contribution"] < 0]
+    return min(losers, key=lambda a: a["contribution"]) if losers else None
+
+
+def _outputs(result: dict, regimes: list[Regime], shocks: dict[str, float] | None = None) -> dict:
     """보고서가 참조하는 수치 키. Validator는 보고서의 모든 수치가 이 키에서 왔는지 확인한다."""
     out = {
         "pnl": result["portfolio_pnl"],
@@ -289,6 +295,8 @@ def _outputs(result: dict, regimes: list[Regime]) -> dict:
         out[f"f:{f['factor_id']}"] = f["shock"]
         if f.get("share") is not None:
             out[f"fc:{f['factor_id']}.share"] = f["share"]
+    for k, s in (shocks or {}).items():  # 보유 자산이 노출되지 않은 팩터의 충격값도 보고서가 인용할 수 있어야 한다
+        out.setdefault(f"f:{k}", s)
     for i, r in enumerate(regimes):
         out[f"regime.{i}.similarity"] = r.similarity
         out[f"regime.{i}.pnl"] = None if math.isnan(r.pnl) else r.pnl
@@ -407,7 +415,7 @@ def attach_extras(out: dict, ctx: Context, actual: dict | None, cross: list[dict
     """compute() 결과에 사후 검증(actual)과 포트폴리오 비교(cross_portfolio)를 붙이고 보고서 키·근거 패널 항목을 만든다."""
     result, calc = out["result"], out["calc_log"]
     outputs, entries = calc["outputs"], calc["entries"]
-    worst = next((a for a in result["by_asset"] if a["asset_id"] == (result["top_contributors"][0] if result["top_contributors"] else None)), None)
+    worst = _worst_loss_asset(result["by_asset"])
     main = {"portfolio_id": ctx.portfolio.portfolio_id, "name": ctx.portfolio.name, "aum": ctx.portfolio.aum,
             "pnl": result["portfolio_pnl"], "amount": result["pnl_amount"], "range": result["range"],
             "worst_asset": worst["name"] if worst else None, "worst_contribution": worst["contribution"] if worst else None,

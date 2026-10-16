@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import timedelta
 
 from sqlalchemy import select
 
@@ -27,12 +28,14 @@ class RateSpec:
     source: str
     source_url: str
     level_label: str = ""  # "상단" 등 수준 표기 접두
+    announce_offset_days: int = 0  # 시계열 변화일 → 발표일 보정 (FOMC 는 발표 다음 날 적용되므로 −1)
 
 
 BOK = RateSpec("BOK_BASE_RATE", "bok_rate", "KR", "한국은행 기준금리", "금융통화위원회",
                "한국은행 ECOS (기준금리 시계열에서 파생)", "https://ecos.bok.or.kr")
 FED = RateSpec("FED_TARGET_UPPER", "fed_rate", "US", "미국 연준 기준금리", "FOMC",
-               "FRED (연방기금 목표금리 상단 시계열에서 파생)", "https://fred.stlouisfed.org/series/DFEDTARU", level_label="상단 ")
+               "FRED (연방기금 목표금리 상단 시계열에서 파생)", "https://fred.stlouisfed.org/series/DFEDTARU", level_label="상단 ",
+               announce_offset_days=-1)
 
 
 def derive_rate_events(spec: RateSpec) -> dict:
@@ -50,17 +53,22 @@ def derive_rate_events(spec: RateSpec) -> dict:
             if prev is not None and abs(v - prev) > 1e-9:
                 total += 1
                 delta = v - prev
-                eid = f"{spec.prefix}_{d.strftime('%Y%m%d')}"
-                if s.get(PolicyEvent, eid) is None:
+                eid = f"{spec.prefix}_{d.strftime('%Y%m%d')}"  # id 는 시계열 변화일 기준 (안정)
+                announced = d + timedelta(days=spec.announce_offset_days)
+                existing = s.get(PolicyEvent, eid)
+                if existing is not None:
+                    if existing.announced_at != announced:
+                        existing.announced_at = announced  # 보정 규칙이 바뀐 경우 날짜만 맞춘다
+                else:
                     direction = "인상" if delta > 0 else "인하"
                     s.add(PolicyEvent(
                         event_id=eid, country=spec.country, type="rate",
                         title=f"{spec.bank} {abs(delta):.2f}%p {direction} ({spec.level_label}{v:.2f}%)",
                         summary=f"{spec.body} 기준금리 결정: {spec.level_label}{prev:.2f}% → {v:.2f}%",
                         targets=["policy_rate"], value=round(delta, 4), value_text=f"{'+' if delta > 0 else '−'}{abs(delta):.2f}%p",
-                        announced_at=d, source=spec.source, source_url=spec.source_url,
+                        announced_at=announced, source=spec.source, source_url=spec.source_url,
                         license=meta.license or "출처 표시",
-                        raw_text=(f"{spec.bank}가 {d.isoformat()}에 {spec.level_label}{prev:.2f}%에서 {v:.2f}%로 {direction}됐다. "
+                        raw_text=(f"{spec.bank}가 {announced.isoformat()}에 {spec.level_label}{prev:.2f}%에서 {v:.2f}%로 {direction}됐다. "
                                   f"({spec.series_id} 시계열의 변화일에서 자동 생성, 결정 기구 {spec.body})"),
                         is_demo=False, relevance="high", title_orig=None, collected_at=utcnow(),
                     ))

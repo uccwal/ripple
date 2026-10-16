@@ -196,3 +196,19 @@ def test_regime_summary_describes_top_factor_moves(session):
     ctx = risk.prepare(session, "pf_a", None, 20)
     regs = risk.find_regimes(ctx, {"USDKRW": 3.0, "KOSPI_IT": -8.0})
     assert regs and all(r.summary for r in regs)
+
+
+def test_outputs_have_shock_key_for_every_factor_and_worst_is_a_loser(session):
+    from app.engine import risk
+    from app.engine.outcome import summarize_cases
+
+    ctx = risk.prepare(session, "pf_b", None, 20)
+    out = risk.compute(ctx, {"KOSPI_IT": -8.0, "DGS2": 0.3, "USDKRW": -10.0}, [], "run_t")
+    o = out["calc_log"]["outputs"]
+    assert "f:KOSPI_IT" in o and "f:DGS2" in o  # pf_b 에는 KOSPI_IT·DGS2 노출 자산이 없어도 충격값 키는 있어야 한다
+    risk.attach_extras(out, ctx, None, [])
+    main = out["result"]["cross_portfolio"][0]
+    assert main["worst_contribution"] is None or main["worst_contribution"] < 0
+    s = summarize_cases([{"direction_hit": True, "abs_error": 1.0, "factor_hit_rate": 0.5},
+                         {"direction_hit": False, "abs_error": 3.0, "factor_hit_rate": 1.0}, {"direction_hit": None}])
+    assert s == {"n_cases": 3, "n_judged": 2, "direction_hit_rate": 0.5, "mean_abs_error": 2.0, "factor_hit_rate": 0.75}

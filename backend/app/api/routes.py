@@ -17,6 +17,8 @@ from .. import collect, graph, runner
 from ..config import settings
 from ..db import engine as db_engine, get_session
 from ..engine.catalog import FACTOR_BY_ID
+from ..engine.outcome import summarize_cases
+from ..engine.quality import series_quality
 from ..engine.risk import ENGINE_VERSION
 from ..models.tables import CalcLog, Holding, PolicyEvent, Portfolio, Run, Series, SeriesValue
 from .report_html import render_html
@@ -54,10 +56,15 @@ def meta(s: Session = Depends(get_session)):
     }
 
 
+BACKTEST_SCAN_RUNS = 400  # 최근 실행만 훑는다 (state JSON 전체를 읽으므로)
+
+
 def backtest_summary(s: Session, limit: int = 20) -> dict:
-    """사후 검증이 붙은 이벤트 분석(발표 후 분석 기간이 지난 것)의 방향 적중률·오차 요약."""
+    """사후 검증이 붙은 이벤트 분석(발표 후 분석 기간이 지난 것)의 방향 적중률·오차 요약. 집계 계산은 engine/outcome.summarize_cases."""
     cases = []
-    for r in s.scalars(select(Run).where(Run.entry == "event", Run.status.in_(("done", "partial"))).order_by(Run.created_at.desc())):
+    q = (select(Run).where(Run.entry == "event", Run.status.in_(("done", "partial")))
+         .order_by(Run.created_at.desc()).limit(BACKTEST_SCAN_RUNS))
+    for r in s.scalars(q):
         st = r.state or {}
         act = (st.get("result") or {}).get("actual")
         if not act or not act.get("complete"):
@@ -67,20 +74,28 @@ def backtest_summary(s: Session, limit: int = 20) -> dict:
                       "estimate_pnl": act.get("estimate_pnl"), "actual_pnl": act.get("portfolio_pnl"),
                       "direction_hit": act.get("direction_hit"), "abs_error": act.get("abs_error"),
                       "factor_hit_rate": act.get("factor_hit_rate")})
-    judged = [c for c in cases if c["direction_hit"] is not None]
-    errs = [c["abs_error"] for c in cases if c["abs_error"] is not None]
-    frates = [c["factor_hit_rate"] for c in cases if c["factor_hit_rate"] is not None]
-    return {
-        "n_cases": len(cases), "n_judged": len(judged),
-        "direction_hit_rate": (sum(1 for c in judged if c["direction_hit"]) / len(judged)) if judged else None,
-        "mean_abs_error": (sum(errs) / len(errs)) if errs else None,
-        "factor_hit_rate": (sum(frates) / len(frates)) if frates else None,
-        "cases": cases[:limit],
-    }
+    return {**summarize_cases(cases), "cases": cases[:limit]}
+
+
+_radar_cache: dict = {"at": 0.0, "value": None}
+RADAR_TTL_S = 30.0
 
 
 def radar(s: Session) -> dict:
-    """대시보드 상단 레이더: 최근 7일 이벤트·관련성 high·자동 분석, 사후 검증 적중률, 데이터 점검 건수."""
+    """대시보드 상단 레이더: 최근 7일 이벤트·관련성 high·자동 분석, 사후 검증 적중률, 데이터 점검 건수. 30초 캐시."""
+    import time
+
+    now = time.monotonic()
+    # 실행이 새로 끝나면 바로 갱신되도록 (실행 수, 마지막 종료 시각) 을 키로 쓴다
+    key = tuple(s.execute(select(func.count(Run.run_id), func.max(Run.finished_at))).one())
+    if _radar_cache["value"] is not None and _radar_cache.get("key") == key and now - _radar_cache["at"] < RADAR_TTL_S:
+        return _radar_cache["value"]
+    value = _radar_uncached(s)
+    _radar_cache.update(at=now, value=value, key=key)
+    return value
+
+
+def _radar_uncached(s: Session) -> dict:
     since = date.today() - timedelta(days=7)
     ev7 = s.scalars(select(PolicyEvent).where(PolicyEvent.announced_at >= since, PolicyEvent.is_demo.is_(False))).all()
     runs7 = s.scalars(select(Run).where(Run.created_at >= datetime.combine(since, datetime.min.time()))).all()
@@ -428,37 +443,6 @@ def admin_collect_run_get(token: str | None = Query(default=None), since: date |
 
 # ------------------------------------------------------------------ 데이터 관리 (S7): 시리즈·이벤트·수집 현황
 
-# 값이 가끔만 바뀌는 계단형 시계열 (기준금리). 커버리지·지연 판정을 완화한다.
-STEP_SERIES = {"BOK_BASE_RATE", "FED_TARGET_UPPER"}
-STALE_BDAYS = 5  # 최종 관측일이 오늘보다 이 영업일 이상 뒤처지면 '지연' (공표 지연 1~2일은 정상)
-# 원 기관의 공표 주기가 긴 시리즈는 허용 지연을 늘린다. WTI(EIA)는 FRED 에 주 1회 반영되어 최대 7~8영업일 뒤처진다.
-STALE_TOLERANCE = {"WTI": 10}
-MIN_COVERAGE = 0.85  # 기간 내 영업일 대비 관측 비율이 이보다 낮으면 '결측 많음' (한국·미국 휴장일 차이 ≈ 5%)
-
-
-def _series_quality(count: int, first: date | None, last: date | None, today: date, synthetic: bool, *, step_like: bool,
-                    stale_limit: int = STALE_BDAYS) -> dict:
-    """신선도·커버리지 지표. stale_bdays: 최종 관측일 이후 영업일 수, coverage: 관측 수 / 기간 영업일 수."""
-    import numpy as np  # noqa: PLC0415
-
-    if not count or first is None or last is None:
-        return {"stale_bdays": None, "coverage": None, "quality": "empty"}
-    stale = int(np.busday_count(last, today)) if last < today else 0
-    bdays = int(np.busday_count(first, last)) + 1
-    coverage = round(min(count / bdays, 1.0), 3) if bdays > 0 else None
-    if synthetic:
-        quality = "synthetic"
-    elif stale > stale_limit and not step_like:
-        quality = "stale"
-    elif coverage is not None and coverage < MIN_COVERAGE and not step_like:
-        quality = "gappy"
-    elif step_like and stale > 20:
-        quality = "stale"
-    else:
-        quality = "ok"
-    return {"stale_bdays": stale, "coverage": coverage, "quality": quality}
-
-
 def _series_status(s: Session) -> list[dict]:
     from ..engine.catalog import FACTOR_BY_ID as _F  # noqa: PLC0415
 
@@ -473,8 +457,7 @@ def _series_status(s: Session) -> list[dict]:
     today = date.today()
     for sid, name, source, unit, lic, url, n, d0, d1, collected in rows:
         synthetic = source.startswith("SYNTHETIC")
-        q = _series_quality(n, d0, d1, today, synthetic, step_like=sid in STEP_SERIES,
-                            stale_limit=STALE_TOLERANCE.get(sid, STALE_BDAYS))
+        q = series_quality(sid, n, d0, d1, today, synthetic)
         series.append({
             "series_id": sid, "name": name, "source": source, "unit": unit, "license": lic, "source_url": url,
             "count": n, "first_date": d0.isoformat() if d0 else None, "last_date": d1.isoformat() if d1 else None,

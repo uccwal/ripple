@@ -135,8 +135,9 @@ def extra_outputs(state: RunState) -> dict:
     out = {"horizon": state["horizon_days"]}
     paths = state.get("impact_paths") or []
     if paths:
+        nodes = (state.get("graph") or {}).get("nodes", [])
         out["paths.n"] = len(paths)
-        out["evidence.n"] = len((state.get("graph") or {}).get("nodes", [])) and sum(len(n.get("evidence", [])) for n in state["graph"]["nodes"])
+        out["evidence.n"] = sum(len(n.get("evidence", [])) for n in nodes)
     out["shocks.n"] = len((state.get("scenario") or {}).get("shocks", []))
     out["hedges.n"] = len((state.get("result") or {}).get("hedges", []))
     ev = state.get("event") or {}

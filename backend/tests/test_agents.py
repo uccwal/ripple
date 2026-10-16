@@ -102,7 +102,7 @@ def test_parse_natural_won_weakness_is_fx_up():
 
 @pytest.mark.parametrize("text,expected", [
     ("달러 인덱스 3% 상승", {"DXY_BROAD": 3.0}),
-    ("달러 약세 2%", {"DXY_BROAD": -2.0}),
+    ("달러 약세 2%", {"USDKRW": -2.0}),  # 달러 약세 = 원/달러 하락 (달러 인덱스는 "달러 인덱스/달러지수/dxy" 로만)
     ("미국 2년 금리 50bp 인상", {"DGS2": 0.5}),
     ("원화 5% 약세 + 달러인덱스 2% 상승", {"USDKRW": 5.0, "DXY_BROAD": 2.0}),
 ])
@@ -144,3 +144,12 @@ def test_report_writer_describe_key():
     assert describe_key("h:KR_SEMI.contribution", names).startswith("국내 반도체 대형주")
     assert "충격값" in describe_key("f:USDKRW", names)
     assert "비중" in describe_key("fc:USDKRW.share", names)
+
+
+def test_parse_natural_year_and_dollar_phrases_do_not_hijack_factors():
+    from app.agents.scenario_builder import parse_natural
+
+    assert parse_natural("2010년처럼 유가 30% 급등") == {"WTI": 30.0}
+    assert parse_natural("달러 3% 약세") == {"USDKRW": -3.0}
+    assert parse_natural("달러 약세 3%") == {"USDKRW": -3.0}
+    assert parse_natural("달러 인덱스 3% 약세") == {"DXY_BROAD": -3.0}

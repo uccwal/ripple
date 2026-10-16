@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { CrossPortfolioRow } from '@/api/types'
 import CalcNum from '@/components/common/CalcNum.vue'
 import RpBadge from '@/components/common/RpBadge.vue'
@@ -6,17 +7,20 @@ import { formatAum, formatEok } from '@/utils/format'
 import { useUiStore } from '@/stores/ui'
 
 /** 같은 충격값을 모든 모델 포트폴리오에 적용한 손익 비교 (엔진만, 유사 국면 비교 제외) */
-defineProps<{ runId: string; rows: CrossPortfolioRow[] }>()
+const props = defineProps<{ runId: string; rows: CrossPortfolioRow[] }>()
 const ui = useUiStore()
+/** 근거 패널 항목(xp)은 손익이 계산된 포트폴리오가 2개 이상일 때만 만들어진다 */
+const hasEntry = computed(() => props.rows.filter((r) => r.pnl != null).length > 1)
 </script>
 
 <template>
   <section class="rp-card overflow-hidden">
     <div class="flex items-baseline justify-between px-5 py-3">
       <h3 class="m-0 text-body font-bold">포트폴리오 비교</h3>
-      <button type="button" class="cursor-pointer border-0 bg-transparent p-0 text-caption font-normal text-navy-900 hover:underline" @click="ui.openCalc(runId, 'xp')">
+      <button v-if="hasEntry" type="button" class="cursor-pointer border-0 bg-transparent p-0 text-caption font-normal text-navy-900 hover:underline" @click="ui.openCalc(runId, 'xp')">
         같은 시나리오 · 계산 근거
       </button>
+      <span v-else class="text-caption font-normal text-ink-3">같은 시나리오</span>
     </div>
     <div class="rp-thead grid grid-cols-[minmax(0,1fr)_112px_72px_96px] gap-2.5 px-5 py-1.5">
       <span>포트폴리오</span><span class="text-right">운용자산</span><span class="text-right">예상 손익</span><span class="text-right">금액</span>

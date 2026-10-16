@@ -60,14 +60,15 @@ defineProps<{ event: EventSummary }>()
       </span>
       <RpBadge v-if="event.last_run?.validation_status === 'pass'" variant="pass" tooltip="Validator 규칙 통과">✓ 검증</RpBadge>
       <RpBadge v-else-if="event.last_run?.validation_status === 'warn'" variant="warn" tooltip="경고가 있는 분석 결과">⚠ 경고</RpBadge>
-      <RpButton
-        v-if="event.last_run"
-        class="ml-auto"
-        variant="outline"
-        size="sm"
-        :to="{ name: 'run', params: { id: event.last_run.run_id } }"
-        >결과 보기</RpButton
-      >
+      <template v-if="event.last_run">
+        <RouterLink
+          class="ml-auto text-caption font-semibold text-navy-900 no-underline hover:underline"
+          :to="{ name: 'new', query: { event: event.event_id } }"
+          title="다른 포트폴리오·기간으로 새 분석"
+          >다시 분석</RouterLink
+        >
+        <RpButton variant="outline" size="sm" :to="{ name: 'run', params: { id: event.last_run.run_id } }">결과 보기</RpButton>
+      </template>
       <RpButton v-else class="ml-auto" variant="outline" size="sm" :to="{ name: 'new', query: { event: event.event_id } }">분석하기</RpButton>
     </div>
   </article>

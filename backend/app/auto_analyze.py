@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import date, timedelta
 
 from sqlalchemy import select
@@ -17,7 +18,8 @@ from .db import session_scope
 from .models.tables import PolicyEvent, Portfolio, Run
 
 log = logging.getLogger("ripple.auto")
-ACTIVE = ("queued", "running", "done", "partial")
+ACTIVE = ("queued", "running", "done", "partial", "failed")  # 실패한 이벤트도 다시 고르지 않는다 (무한 재시도·비용 방지)
+_LOCK = threading.Lock()
 
 
 def pending_events(session, days: int, limit: int) -> list[PolicyEvent]:
@@ -34,6 +36,15 @@ def auto_analyze(max_runs: int | None = None, days: int | None = None, portfolio
     days = settings.auto_analyze_days if days is None else days
     if limit <= 0:
         return {"started": 0, "done": 0, "failed": 0, "skipped": "disabled"}
+    if not _LOCK.acquire(blocking=False):
+        return {"started": 0, "done": 0, "failed": 0, "skipped": "이미 실행 중"}
+    try:
+        return _auto_analyze(limit, days, portfolio_id)
+    finally:
+        _LOCK.release()
+
+
+def _auto_analyze(limit: int, days: int, portfolio_id: str | None) -> dict:
     run_ids: list[str] = []
     with session_scope() as s:
         pf_id = portfolio_id or settings.auto_analyze_portfolio
