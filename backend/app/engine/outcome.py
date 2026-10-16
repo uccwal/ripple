@@ -18,8 +18,11 @@ from .catalog import FACTOR_BY_ID, FACTORS
 from .data import asset_returns, load_levels, required_series, window_return
 
 
-def _sign(v: float | None) -> int | None:
-    if v is None or (isinstance(v, float) and math.isnan(v)) or abs(v) < 1e-12:
+PNL_EPS = 0.1  # 포트폴리오 손익 ±0.1% 안이면 '방향 없음' 으로 보고 적중 판정을 보류한다
+
+
+def _sign(v: float | None, eps: float = 1e-12) -> int | None:
+    if v is None or (isinstance(v, float) and math.isnan(v)) or abs(v) < eps:
         return None
     return 1 if v > 0 else -1
 
@@ -68,7 +71,7 @@ def actual_outcome(session: Session, holdings: list[Holding], announced_at: date
         by_asset[h.asset_id] = None if math.isnan(r) else r
     pnl = (float(sum(h.weight / 100 * by_asset[h.asset_id] for h in holdings))
            if all(v is not None for v in by_asset.values()) else None)
-    est_sign, act_sign = _sign(estimate_pnl), _sign(pnl)
+    est_sign, act_sign = _sign(estimate_pnl, PNL_EPS), _sign(pnl, PNL_EPS)
     return {
         "start": start.date().isoformat(), "end": end.date().isoformat(), "days": int(days), "horizon": horizon,
         "complete": days >= horizon,

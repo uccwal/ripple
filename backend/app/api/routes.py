@@ -484,7 +484,7 @@ def _series_status(s: Session) -> list[dict]:
 
 
 @router.get("/admin/analyze/run")
-def admin_analyze_run(token: str | None = Query(default=None), max: int = Query(5, ge=1, le=50), days: int = Query(7, ge=1, le=400),
+def admin_analyze_run(token: str | None = Query(default=None), max: int = Query(5, ge=1, le=50), days: int = Query(7, ge=1, le=2000),
                       portfolio_id: str | None = None):
     """관련성 high · 최근 days 일 · 미분석 이벤트를 백그라운드에서 자동 분석한다 (브라우저용)."""
     _check_admin(token)

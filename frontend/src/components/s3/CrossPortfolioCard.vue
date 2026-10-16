@@ -18,21 +18,23 @@ const ui = useUiStore()
         같은 시나리오 · 계산 근거
       </button>
     </div>
-    <div class="rp-thead grid grid-cols-[minmax(0,1fr)_88px_80px_96px] gap-2.5 px-5 py-1.5">
+    <div class="rp-thead grid grid-cols-[minmax(0,1fr)_112px_72px_96px] gap-2.5 px-5 py-1.5">
       <span>포트폴리오</span><span class="text-right">운용자산</span><span class="text-right">예상 손익</span><span class="text-right">금액</span>
     </div>
     <div
       v-for="p in rows"
       :key="p.portfolio_id"
-      class="tnum grid grid-cols-[minmax(0,1fr)_88px_80px_96px] items-center gap-2.5 border-t border-line-subtle px-5 py-[8px] text-small"
+      class="tnum grid grid-cols-[minmax(0,1fr)_112px_72px_96px] items-center gap-2.5 border-t border-line-subtle px-5 py-[8px] text-small"
       :class="p.current ? 'bg-navy-50/40' : ''"
     >
-      <span class="flex min-w-0 items-center gap-1.5">
-        <span class="ellipsis font-semibold">{{ p.name }}</span>
-        <RpBadge v-if="p.current" variant="entry">현재</RpBadge>
-        <span v-if="p.worst_asset && !p.error" class="ellipsis text-micro text-ink-3" :title="`최대 손실 기여: ${p.worst_asset}`">· {{ p.worst_asset }}</span>
+      <span class="flex min-w-0 flex-col">
+        <span class="flex min-w-0 items-center gap-1.5">
+          <span class="ellipsis font-semibold">{{ p.name }}</span>
+          <RpBadge v-if="p.current" variant="entry">현재</RpBadge>
+        </span>
+        <span v-if="p.worst_asset && !p.error" class="ellipsis text-micro text-ink-3" :title="`최대 손실 기여: ${p.worst_asset}`">최대 손실 기여 · {{ p.worst_asset }}</span>
       </span>
-      <span class="text-right text-ink-2">{{ formatAum(p.aum) }}</span>
+      <span class="whitespace-nowrap text-right text-ink-2">{{ formatAum(p.aum) }}</span>
       <template v-if="p.error">
         <span class="col-span-2 text-right text-micro text-ink-3" :title="p.error">계산 불가</span>
       </template>

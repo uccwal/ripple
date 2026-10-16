@@ -20,7 +20,7 @@ const router = useRouter()
 const history = useHistoryStore()
 const { runs, state, error } = storeToRefs(history)
 
-const GRID = 'grid-cols-[150px_80px_minmax(0,1fr)_230px_100px_110px_80px]'
+const GRID = 'grid-cols-[150px_124px_minmax(0,1fr)_230px_100px_110px_80px]'
 
 function badgeFor(r: RunListItem) {
   if (r.status === 'failed') return VALIDATION_BADGE.fail

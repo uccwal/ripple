@@ -45,7 +45,7 @@ defineProps<{ event: EventSummary }>()
           <span>예상 손익 <span v-if="event.last_run.auto" class="text-navy-700" :title="AUTO_RUN_TIP">· 자동</span></span>
           <span v-if="event.last_run.actual_pnl != null" class="tnum text-micro" :title="ACTUAL_TIP">
             실제 {{ formatPct(event.last_run.actual_pnl) }}
-            <span :class="event.last_run.direction_hit ? 'text-pass' : 'text-warn'">{{ event.last_run.direction_hit ? '방향 적중' : '방향 불일치' }}</span>
+            <span v-if="event.last_run.direction_hit != null" :class="event.last_run.direction_hit ? 'text-pass' : 'text-warn'">{{ event.last_run.direction_hit ? '방향 적중' : '방향 불일치' }}</span>
           </span>
         </span>
         <CalcNum class="text-xl font-bold" :value="event.last_run.portfolio_pnl" :to="{ name: 'run', params: { id: event.last_run.run_id } }" label="예상 손익" />

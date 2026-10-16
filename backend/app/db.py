@@ -20,13 +20,15 @@ class Base(DeclarativeBase):
 def make_engine(url: str):
     kwargs: dict = {"future": True, "pool_pre_ping": True}
     if url.startswith("sqlite"):
-        kwargs["connect_args"] = {"check_same_thread": False}
+        # 분석 실행이 스레드 여러 개에서 동시에 쓰므로 잠금 대기를 넉넉히 둔다 (기본 5초면 'database is locked')
+        kwargs["connect_args"] = {"check_same_thread": False, "timeout": 60}
     eng = create_engine(url, **kwargs)
     if url.startswith("sqlite"):
         @event.listens_for(eng, "connect")
         def _pragma(dbapi_conn, _):  # noqa: ANN001
             cur = dbapi_conn.cursor()
             cur.execute("PRAGMA journal_mode=WAL")
+            cur.execute("PRAGMA busy_timeout=60000")
             cur.execute("PRAGMA foreign_keys=ON")
             cur.close()
     return eng

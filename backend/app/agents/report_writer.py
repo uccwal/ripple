@@ -234,7 +234,8 @@ def _assemble(state: RunState, text: ReportText, outputs: dict) -> tuple[str, li
         if "factor_hit_rate" in act and act["factor_hit_rate"] is not None:
             lines.append("시나리오 충격 변수의 방향 적중률은 {{act.hit_rate}}이다.")
         lines += ["", "| 변수 | 시나리오 충격 | 실제 변화 | 방향 |", "| --- | --- | --- | --- |"]
-        for k, f in act["factors"].items():
+        ordered = sorted(act["factors"].items(), key=lambda kv: (kv[1].get("shock") is None, -abs(kv[1]["actual"])))
+        for k, f in ordered:
             shock = f"{{{{f:{k}}}}}" if f.get("shock") is not None else "-"
             mark = "적중" if f.get("hit") else ("불일치" if f.get("hit") is False else "-")
             lines.append(f"| {f['name']} | {shock} | {{{{act.f:{k}}}}} | {mark} |")

@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
-from . import collect, runner
+from . import collect, graph, runner
 from .api.routes import router
 from .config import REPO_ROOT, settings
 from .db import init_db
@@ -27,6 +27,7 @@ log = logging.getLogger("ripple")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    graph.sweep_stale_runs()  # 이전 프로세스에서 끝나지 못한 실행 정리
     runner.set_loop(asyncio.get_running_loop())
     collect.start_scheduler()
     log.info("RIPPLE 시작 · LLM 모드 %s · 모델 %s", settings.llm_mode, settings.model_default)

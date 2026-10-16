@@ -5,7 +5,9 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import math
+import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import date
@@ -15,6 +17,7 @@ from statistics import median
 import numpy as np
 import pandas as pd
 from sqlalchemy import delete, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -29,6 +32,7 @@ from .regimes import Regime, analog_changes, analog_summary, historical_max, top
 
 ANALOG_TYPES = ("tariff", "rate", "regulation", "fx", "macro")
 
+log = logging.getLogger(__name__)
 ENGINE_VERSION = "0.1.0"
 Z95 = 1.96
 
@@ -117,14 +121,21 @@ def prepare(session: Session, portfolio_id: str, as_of: date | None, horizon: in
     return ctx
 
 
+_BETA_LOCK = threading.Lock()  # 동시 실행이 같은 (asset, window_end) 행을 지우고 다시 쓰므로 프로세스 안에서 직렬화
+
+
 def _store_betas(session: Session, ctx: Context) -> None:
-    for fit in ctx.fits.values():
-        session.execute(delete(FactorBeta).where(FactorBeta.asset_id == fit.asset_id,
-                                                 FactorBeta.window_end == fit.window_end.date()))
-        for k, b in fit.betas.items():
-            session.add(FactorBeta(asset_id=fit.asset_id, factor_id=k, beta=b, std_err=fit.std_err[k], r2=fit.r2,
-                                   window_start=fit.window_start.date(), window_end=fit.window_end.date()))
-    session.flush()
+    """추정한 베타를 factor_beta 테이블에 남긴다 (조회·감사용). 저장 실패(동시 쓰기 잠금 등)는 계산을 멈출 이유가 아니라 경고만 남긴다."""
+    try:
+        with _BETA_LOCK, session.begin_nested():
+            for fit in ctx.fits.values():
+                session.execute(delete(FactorBeta).where(FactorBeta.asset_id == fit.asset_id,
+                                                         FactorBeta.window_end == fit.window_end.date()))
+                for k, b in fit.betas.items():
+                    session.add(FactorBeta(asset_id=fit.asset_id, factor_id=k, beta=b, std_err=fit.std_err[k], r2=fit.r2,
+                                           window_start=fit.window_start.date(), window_end=fit.window_end.date()))
+    except SQLAlchemyError as e:  # noqa: BLE001
+        log.warning("factor_beta 저장 건너뜀 (%s): %s", ctx.portfolio.portfolio_id, str(e).splitlines()[0][:160])
 
 
 # ---------------------------------------------------------------- Scenario Builder 보조 통계

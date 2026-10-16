@@ -294,6 +294,41 @@ def serializable(state: RunState) -> dict:
     return {k: v for k, v in state.items() if not k.startswith("_")}
 
 
+def _save_final_state(run_id: str, status: str, error: str | None, state: dict, attempts: int = 5) -> None:
+    """종료 상태 저장이 실패(DB 잠금 등)하면 새 세션으로 몇 번 더 시도한다. 실패하면 run 이 영원히 running 으로 남기 때문."""
+    import time
+
+    for i in range(attempts):
+        s = SessionLocal()
+        try:
+            r = s.get(Run, run_id)
+            if r is not None:
+                r.status, r.error, r.state, r.finished_at = status, error, serializable(state), utcnow()
+                s.commit()
+            return
+        except Exception as e:  # noqa: BLE001
+            s.rollback()
+            log.warning("run %s: 종료 상태 재저장 실패 (%d/%d): %s", run_id, i + 1, attempts, e)
+            time.sleep(1.0 + i)
+        finally:
+            s.close()
+
+
+def sweep_stale_runs(reason: str = "서버 재시작으로 중단된 실행") -> int:
+    """기동 시: 이전 프로세스에서 queued/running 으로 남은 실행을 failed 로 정리한다 (재배포·재시작 뒤 영원히 '실행 중'으로 보이지 않게)."""
+    s = SessionLocal()
+    try:
+        stale = list(s.scalars(select(Run).where(Run.status.in_(("queued", "running")))))
+        for r in stale:
+            r.status, r.error, r.finished_at = "failed", reason, utcnow()
+        s.commit()
+        if stale:
+            log.warning("미완료 실행 %d건을 failed 로 정리", len(stale))
+        return len(stale)
+    finally:
+        s.close()
+
+
 def execute(run_id: str) -> None:
     session = SessionLocal()
     run = session.get(Run, run_id)
@@ -337,13 +372,15 @@ def execute(run_id: str) -> None:
         run.error = f"내부 오류: {type(e).__name__}: {e}"
         run.state = serializable(last)
     finally:
+        final_status, final_error, final_state = run.status, run.error, run.state
         try:
             run = session.merge(run)
             run.finished_at = utcnow()
             session.commit()
         except Exception as e:  # noqa: BLE001
-            log.error("run %s: 종료 상태 저장 실패: %s", run_id, e)
+            log.error("run %s: 종료 상태 저장 실패: %s — 새 세션으로 재시도", run_id, e)
             session.rollback()
+            _save_final_state(run_id, final_status, final_error, final_state)
         runner.mark_done(run_id)
         timeline = runner.build_timeline(session, run)
         runner.publish(run_id, "run_finished", {"run_id": run_id, "status": run.status, "error": run.error,

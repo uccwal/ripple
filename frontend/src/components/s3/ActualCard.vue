@@ -49,6 +49,7 @@ const hitPct = computed(() => (props.actual.factor_hit_rate == null ? null : Mat
         <div class="mt-1 flex flex-wrap gap-1.5">
           <RpBadge v-if="actual.direction_hit === true" variant="pass">✓ 포트폴리오 적중</RpBadge>
           <RpBadge v-else-if="actual.direction_hit === false" variant="warn">✗ 포트폴리오 불일치</RpBadge>
+          <RpBadge v-else-if="actual.portfolio_pnl != null" variant="outline" tooltip="실제 손익이 ±0.1% 안이라 방향을 판정하지 않습니다">포트폴리오 보류</RpBadge>
           <RpBadge v-if="hitPct != null" :variant="hitPct >= 50 ? 'pass' : 'warn'" :tooltip="`충격 변수 ${actual.factors_judged}개 중 부호 일치 비율`">
             팩터 {{ hitPct }}%
           </RpBadge>
