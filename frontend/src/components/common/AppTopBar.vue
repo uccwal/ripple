@@ -19,6 +19,7 @@ const NAV = [
   { name: 'events', label: '이벤트', to: '/' },
   { name: 'portfolios', label: '포트폴리오', to: '/portfolios' },
   { name: 'runs', label: '실행 이력', to: '/runs' },
+  { name: 'backtest', label: '검증', to: '/backtest' },
   { name: 'data', label: '데이터', to: '/data' },
 ] as const
 

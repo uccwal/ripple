@@ -9,6 +9,7 @@ export const router = createRouter({
     { path: '/runs/:id', name: 'run', component: () => import('@/views/RunView.vue'), meta: { title: '분석 워크스페이스' } },
     { path: '/portfolios', name: 'portfolios', component: () => import('@/views/PortfoliosView.vue'), meta: { title: '포트폴리오' } },
     { path: '/data', name: 'data', component: () => import('@/views/DataView.vue'), meta: { title: '데이터' } },
+    { path: '/backtest', name: 'backtest', component: () => import('@/views/BacktestView.vue'), meta: { title: '사후 검증' } },
     { path: '/system', name: 'system', component: () => import('@/views/SystemView.vue'), meta: { title: '컴포넌트·토큰' } },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/NotFoundView.vue'), meta: { title: '페이지 없음' } },
   ],

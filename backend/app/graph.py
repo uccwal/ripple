@@ -115,7 +115,7 @@ def build(rc: RunContext):
         rc.steps.finish(step, {"summary": f"유사 구간 {len(rc.regimes)}개 · 최고 {top:.2f}" if rc.regimes else "유사 구간 없음 · 팩터 모델만 사용"},
                         "engine (LLM 없음)")
         regimes = [{"start": r.start.date().isoformat(), "end": r.end.date().isoformat(), "similarity": r.similarity,
-                    "tag": r.tag, "pnl": None if math.isnan(r.pnl) else r.pnl, "factor_changes": r.factor_changes}
+                    "tag": r.tag, "summary": r.summary, "pnl": None if math.isnan(r.pnl) else r.pnl, "factor_changes": r.factor_changes}
                    for r in rc.regimes]
         return {"regimes": regimes}
 

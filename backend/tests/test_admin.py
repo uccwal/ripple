@@ -27,7 +27,7 @@ def test_admin_collect_requires_token_and_starts(monkeypatch):
 
 def test_collect_run_skips_without_keys():
     reports = collect.run(only=["fred", "ecos"])
-    assert {r["collector"] for r in reports} == {"fred", "ecos", "bok_rate_events", "fed_rate_events", "localize", "auto_analyze"}
+    assert {r["collector"] for r in reports} == {"fred", "ecos", "bok_rate_events", "fed_rate_events", "localize", "relevance", "auto_analyze"}
     assert all(r["status"] == "skipped" for r in reports)  # 키 없음 · offline
 
 
@@ -102,3 +102,9 @@ def test_normalize_db_url():
     assert normalize_db_url("postgresql://u:p@h/db") == "postgresql+psycopg://u:p@h/db"
     assert normalize_db_url("postgresql+psycopg2://u:p@h/db") == "postgresql+psycopg://u:p@h/db"
     assert normalize_db_url("sqlite:///x.db") == "sqlite:///x.db"
+
+
+def test_rate_pending_offline_is_skipped():
+    from app.localize import rate_pending
+
+    assert rate_pending()["skipped"] == "offline"

@@ -116,7 +116,7 @@ function openAsset(id: string): void {
         class="tnum grid grid-cols-[220px_minmax(0,1fr)_220px_120px] items-center gap-4 border-t border-line-subtle px-5 py-[9px] text-small"
       >
         <span>{{ g.start }} ~ {{ g.end }}</span>
-        <span class="text-ink-2">{{ g.tag }}</span>
+        <span class="ellipsis" :class="g.tag ? 'font-semibold text-ink' : 'text-ink-3'" :title="g.tag || g.summary">{{ g.tag || g.summary || '—' }}</span>
         <div class="flex items-center gap-2">
           <div class="h-1.5 flex-1 rounded-xs bg-line-subtle">
             <div class="h-1.5 rounded-xs bg-navy-500" :style="{ width: `${Math.max(0, Math.min(1, g.similarity)) * 100}%` }" />

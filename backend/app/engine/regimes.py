@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from ..config import DATA_DIR
+from .catalog import FACTOR_BY_ID
 
 
 @dataclass
@@ -19,6 +20,7 @@ class Regime:
     factor_changes: dict[str, float]
     tag: str = ""
     tag_type: str = ""
+    summary: str = ""  # 라벨이 없을 때 쓰는 '당시 주요 변화' (표준화 크기 상위 팩터 2개)
     pnl: float = float("nan")
     asset_returns: dict[str, float] = field(default_factory=dict)
 
@@ -78,6 +80,7 @@ def top_regimes(
     scores = similarity_scores(windows, shock)
     if scores.empty:
         return []
+    std = windows.std(ddof=0).replace(0, np.nan)
     trading_days = window_changes.index
     picked: list[Regime] = []
     for end, s in scores.sort_values(ascending=False).items():
@@ -90,7 +93,8 @@ def top_regimes(
         label, ttype = tag_for(start, end)
         picked.append(
             Regime(start=start, end=end, similarity=float(s),
-                   factor_changes={k: float(v) for k, v in windows.loc[end].items()}, tag=label, tag_type=ttype)
+                   factor_changes={k: float(v) for k, v in windows.loc[end].items()}, tag=label, tag_type=ttype,
+                   summary=describe_changes(windows.loc[end], std))
         )
     return picked
 
@@ -137,3 +141,16 @@ def analog_summary(analogs: list[dict]) -> dict[str, dict]:
             "up_share": float((arr > 0).mean()),
         }
     return out
+
+
+def describe_changes(row: pd.Series, std: pd.Series, top: int = 2) -> str:
+    """구간의 팩터 변화 중 표준화 크기가 큰 상위 top 개를 '원/달러 +4.9% · KOSPI −10.5%' 로 요약한다."""
+    z = (row / std).abs().dropna().sort_values(ascending=False)
+    parts = []
+    for k in z.index[:top]:
+        f = FACTOR_BY_ID.get(k)
+        if f is None or pd.isna(row[k]):
+            continue
+        d = 2 if f.unit == "%p" else 1
+        parts.append(f"{f.name} {row[k]:+.{d}f}{f.unit}".replace("-", "−"))
+    return " · ".join(parts)

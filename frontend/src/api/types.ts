@@ -35,6 +35,7 @@ export interface Meta {
 
 /** 대시보드 상단 레이더 (최근 7일) */
 export interface Radar {
+  events_7d_by_source: { source: string; count: number }[]
   events_7d: number
   events_7d_high: number
   events_7d_kr: number
@@ -267,6 +268,8 @@ export interface Regime {
   end: string
   similarity: number
   tag: string
+  /** 라벨이 없을 때: 당시 주요 팩터 변화 요약 ("원/달러 +4.9% · KOSPI −10.5%") */
+  summary: string
   pnl: number
   factor_changes: Record<string, number>
 }

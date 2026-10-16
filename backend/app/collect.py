@@ -72,6 +72,18 @@ def run(since: date | None = None, only: list[str] | None = None) -> list[dict]:
             log.exception("한국어 구조화 실패")
             reports.append({"collector": "localize", "status": "error", "message": f"{type(e).__name__}: {e}", "counts": {}})
         _state["reports"] = list(reports)
+        # 관련성이 없는 이벤트(한국어 보도자료 등) 평가 → 자동 사전분석·필터가 쓴다
+        from .localize import rate_pending  # noqa: PLC0415
+
+        try:
+            rt = rate_pending()
+            reports.append({"collector": "relevance", "status": "skipped" if rt.get("skipped") else "ok",
+                            "message": "이벤트 관련성 평가" + (f" ({rt['skipped']})" if rt.get("skipped") else ""),
+                            "counts": {k: v for k, v in rt.items() if k != "skipped"}})
+        except Exception as e:  # noqa: BLE001
+            log.exception("관련성 평가 실패")
+            reports.append({"collector": "relevance", "status": "error", "message": f"{type(e).__name__}: {e}", "counts": {}})
+        _state["reports"] = list(reports)
         # 관련성 high 신규 이벤트 자동 사전분석 (대시보드에 예상 손익이 미리 붙도록)
         from .auto_analyze import auto_analyze  # noqa: PLC0415
 

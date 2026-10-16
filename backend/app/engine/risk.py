@@ -348,7 +348,7 @@ def _entries(ctx: Context, shocks, by_asset, factor_rows, total, rng, regimes, r
             "sub": f"유사도 상위 {regime_est['n']}개 구간의 실제 손익 중앙값 · {fmt.signed(regime_est['low'])} ~ {fmt.signed(regime_est['high'])}",
             "formula": "pnlⱼ = Σᵢ wᵢ · Rᵢ⁽ʲ⁾ (구간 j의 실제 자산 수익률)\n추정 = median(pnl₁ … pnlₙ)",
             "columns": ["구간", "유사도", "실제 손익"],
-            "rows": [[_cell(f"{r.start.date()} ~ {r.end.date()}" + (f" · {r.tag}" if r.tag else "")),
+            "rows": [[_cell(f"{r.start.date()} ~ {r.end.date()}" + (f" · {r.tag}" if r.tag else (f" · {r.summary}" if r.summary else ""))),
                       _cell(f"{r.similarity:.2f}"), _cell(fmt.signed(r.pnl), r.pnl)] for r in regimes],
             "note": (f"{ctx.horizon}영업일 구간의 팩터 변화 벡터를 표준화한 뒤 시나리오 벡터와 코사인 유사도(크기 가중)로 비교했습니다. "
                      "겹치는 구간은 제외했습니다."),

@@ -1,4 +1,5 @@
 import type {
+  BacktestSummary,
   CalcLog,
   CollectRequest,
   CollectStartResponse,
@@ -106,6 +107,8 @@ export const api = {
   patchScenario: (id: string, body: ScenarioPatchRequest) =>
     request<RunIdResponse>(`/runs/${enc(id)}/scenario`, { method: 'PATCH', body: JSON.stringify(body) }),
   calcLog: (id: string) => request<CalcLog>(`/runs/${enc(id)}/calc-log`),
+  /** 사후 검증 집계 (발표 후 분석 기간이 지난 이벤트 분석) */
+  backtest: (limit = 100, signal?: AbortSignal) => request<BacktestSummary>(`/backtest${query({ limit })}`, { signal }),
 
   /** S7 데이터 관리 — 토큰 불필요 */
   getDataStatus: (signal?: AbortSignal) => request<DataStatus>('/data/status', { signal }),

@@ -88,3 +88,51 @@ def localize_pending(limit: int = MAX_PER_RUN) -> dict:
         s.commit()
     log.info("한국어 구조화 완료 %d건, 실패 %d건", done, failed)
     return {"done": done, "failed": failed}
+
+
+RATE_SYSTEM = """당신은 RIPPLE의 Event Analyst다. 이미 한국어로 된 정책 발표 제목·요약을 보고 한국 기관투자자 포트폴리오(국내 주식·채권·환율·해외 주식·원자재) 관련성을 매긴다.
+
+- relevance: high(시장·업종 전반에 영향: 관세·수출통제·기준금리·대규모 규제·환율/외환 정책) | mid(특정 업종·제도 변화) | low(행사·인사·홍보·절차 공고·소규모 지원).
+- type: 관세·수입제한 → tariff, 기준금리·정책금리 → rate, 그 밖 → regulation.
+- targets: 영향 산업·품목·변수 영문 소문자 키워드 (semiconductor, automobile, steel, policy_rate, fx ...). 없으면 빈 배열.
+- 지정된 JSON 스키마로만 답한다."""
+
+
+class Rated(BaseModel):
+    relevance: str = Field(description="high | mid | low")
+    type: EventType
+    targets: list[str]
+
+
+def rate_pending(limit: int = MAX_PER_RUN) -> dict:
+    """관련성이 매겨지지 않은(한국어 원문 등) 이벤트에 relevance 를 매긴다. 자동 사전분석·대시보드 필터가 이 값을 쓴다."""
+    if settings.llm_mode == "offline":
+        return {"done": 0, "failed": 0, "skipped": "offline"}
+    done = failed = 0
+    with session_scope() as s:
+        pending = list(s.scalars(select(PolicyEvent).where(PolicyEvent.relevance.is_(None), PolicyEvent.is_demo.is_(False))
+                                 .order_by(PolicyEvent.announced_at.desc()).limit(limit)))
+        log.info("관련성 평가 대상 %d건", len(pending))
+        for ev in pending:
+            user = (f"국가: {ev.country}\n출처: {ev.source}\n발표일: {ev.announced_at}\n수집기 추정 유형: {ev.type}\n\n"
+                    f"제목: {ev.title}\n요약: {ev.summary}\n\n본문 일부:\n{(ev.raw_text or '')[:1500]}")
+            try:
+                res = llm.structured(RATE_SYSTEM, user, Rated, model=settings.model_default, effort="low", max_tokens=600)
+            except llm.LLMError as e:
+                log.warning("LLM 오류로 중단: %s", e)
+                failed += 1
+                break
+            if res.parsed is None:
+                failed += 1
+                continue
+            p = res.parsed
+            ev.relevance = p.relevance if p.relevance in ("high", "mid", "low") else "mid"
+            if p.type in ("tariff", "rate", "regulation"):
+                ev.type = p.type
+            if p.targets and not ev.targets:
+                ev.targets = p.targets
+            done += 1
+            if done % 20 == 0:
+                s.commit()
+        s.commit()
+    return {"done": done, "failed": failed}

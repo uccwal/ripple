@@ -128,7 +128,7 @@
     "shocks": [{"variable": "USDKRW", "name": "원/달러 환율", "change": 5.0, "unit": "%", "basis": "과거 유사 관세 국면 중앙값", "hist_max": 14.2, "hist_pct": 35.2, "over_hist": false}]
   },
 
-  "regimes": [{"start": "2018-03-22", "end": "2018-04-19", "similarity": 0.87, "tag": "미·중 1차 관세", "pnl": -4.9, "factor_changes": {"USDKRW": 2.1}}],
+  "regimes": [{"start": "2018-03-22", "end": "2018-04-19", "similarity": 0.87, "tag": "미·중 1차 관세", "summary": "원/달러 +2.1% · KOSPI IT 업종 −6.3%", "pnl": -4.9, "factor_changes": {"USDKRW": 2.1}}],
 
   "result": {
     "portfolio_pnl": -3.8, "pnl_amount": -1240, "aum": 32300,
@@ -305,7 +305,10 @@
 
 **`/api/meta.radar`** — 대시보드 상단 레이더 (최근 7일).
 ```json
-{"events_7d": 31, "events_7d_high": 9, "events_7d_kr": 6, "runs_7d": 14, "auto_runs_7d": 9,
+{"events_7d_by_source": [{"source": "Federal Register", "count": 12}], "events_7d": 31, "events_7d_high": 9, "events_7d_kr": 6, "runs_7d": 14, "auto_runs_7d": 9,
  "backtest": {"n_cases": 12, "n_judged": 10, "direction_hit_rate": 0.7, "mean_abs_error": 1.4, "factor_hit_rate": 0.62},
  "quality_issues": [], "synthetic_remaining": []}
 ```
+
+**`GET /backtest`** 화면(`/backtest`, 상단 메뉴 "검증")이 이 집계를 표로 보여준다. 수집 보고서에 `relevance`(관련성 미평가 이벤트 Claude 평가: `{"done": n, "failed": n}`) 항목이 추가됐다.
+`Regime.summary` 는 라벨(`tag`)이 없는 유사 구간의 당시 주요 팩터 변화 요약.

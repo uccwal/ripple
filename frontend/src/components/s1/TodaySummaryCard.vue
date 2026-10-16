@@ -20,31 +20,31 @@ const dataOk = computed(() => radar.value != null && radar.value.quality_issues.
 
 <template>
   <section class="rp-card px-5 py-[18px]">
-    <h2 class="m-0 text-small font-bold text-ink-2">오늘 수집된 이벤트</h2>
+    <h2 class="m-0 text-small font-bold text-ink-2">최근 7일 수집된 정책 이벤트</h2>
     <template v-if="meta">
       <div class="mb-3 mt-1.5 flex items-baseline gap-1.5">
-        <span class="tnum text-[32px] font-bold leading-[1.5]">{{ meta.today_event_count }}</span>
-        <span class="text-small text-ink-3">건 · 전일 대비 {{ formatDelta(meta.today_event_delta) }}</span>
+        <span class="tnum text-[32px] font-bold leading-[1.5]">{{ radar ? radar.events_7d : meta.today_event_count }}</span>
+        <span class="text-small text-ink-3">건 · 오늘 {{ meta.today_event_count }}건 ({{ formatDelta(meta.today_event_delta) }})</span>
       </div>
-      <ul v-if="meta.events_by_source.length" class="m-0 flex list-none flex-col gap-1.5 p-0 text-small text-ink-2">
-        <li v-for="s in meta.events_by_source" :key="s.source" class="flex justify-between">
-          <span>{{ s.source }}</span><span class="tnum">{{ s.count }}</span>
+      <ul v-if="radar && radar.events_7d_by_source.length" class="m-0 flex list-none flex-col gap-1.5 p-0 text-small text-ink-2">
+        <li v-for="s in radar.events_7d_by_source" :key="s.source" class="flex justify-between gap-3">
+          <span class="ellipsis">{{ s.source }}</span><span class="tnum">{{ s.count }}</span>
         </li>
       </ul>
-      <div v-else class="text-small text-ink-3">오늘 수집된 발표가 없습니다.</div>
+      <div v-else class="text-small text-ink-3">최근 7일에 수집된 발표가 없습니다.</div>
 
       <template v-if="radar">
-        <div class="mt-4 border-t border-line-subtle pt-3 text-caption font-bold text-ink-3">최근 7일</div>
+        <div class="mt-4 border-t border-line-subtle pt-3 text-caption font-bold text-ink-3">최근 7일 요약</div>
         <dl class="tnum m-0 mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1.5 text-small">
-          <dt class="text-ink-3">정책 이벤트</dt>
-          <dd class="m-0 text-right font-semibold">
-            {{ radar.events_7d }}<span class="font-normal text-ink-3"> · 관련성 높음 {{ radar.events_7d_high }} · 한국 {{ radar.events_7d_kr }}</span>
-          </dd>
+          <dt class="text-ink-3">관련성 높음 · 한국</dt>
+          <dd class="m-0 text-right font-semibold">{{ radar.events_7d_high }}<span class="font-normal text-ink-3"> · {{ radar.events_7d_kr }}</span></dd>
           <dt class="text-ink-3">분석 실행</dt>
           <dd class="m-0 text-right font-semibold">
             {{ radar.runs_7d }}<span class="font-normal text-ink-3"> · 자동 {{ radar.auto_runs_7d }}</span>
           </dd>
-          <dt class="text-ink-3" title="발표 후 분석 기간이 지난 이벤트 분석의 포트폴리오 손익 방향 적중률 (사후 검증)">방향 적중률</dt>
+          <dt class="text-ink-3" title="발표 후 분석 기간이 지난 이벤트 분석의 포트폴리오 손익 방향 적중률 (사후 검증)">
+            <RouterLink :to="{ name: 'backtest' }" class="text-ink-3 no-underline hover:underline">방향 적중률 ↗</RouterLink>
+          </dt>
           <dd class="m-0 text-right font-semibold">
             <template v-if="hitPct != null">
               {{ hitPct }}%<span class="font-normal text-ink-3"> · {{ radar.backtest.n_judged }}건</span>

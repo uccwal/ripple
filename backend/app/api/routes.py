@@ -86,7 +86,11 @@ def radar(s: Session) -> dict:
     runs7 = s.scalars(select(Run).where(Run.created_at >= datetime.combine(since, datetime.min.time()))).all()
     bt = backtest_summary(s, limit=0)
     series = _series_status(s)
+    by_src: dict[str, int] = {}
+    for e in ev7:
+        by_src[e.source] = by_src.get(e.source, 0) + 1
     return {
+        "events_7d_by_source": [{"source": k, "count": v} for k, v in sorted(by_src.items(), key=lambda kv: -kv[1])],
         "events_7d": len(ev7), "events_7d_high": sum(1 for e in ev7 if e.relevance == "high"),
         "events_7d_kr": sum(1 for e in ev7 if e.country == "KR"),
         "runs_7d": len(runs7), "auto_runs_7d": sum(1 for r in runs7 if (r.state or {}).get("auto")),

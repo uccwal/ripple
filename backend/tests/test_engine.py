@@ -181,3 +181,18 @@ def test_actual_outcome_and_cross_portfolio(session):
     assert r["cross_portfolio"][0]["current"] is True and r["cross_portfolio"][1]["portfolio_id"] == "pf_b"
     assert "xp:pf_b.pnl" in o and "xp:pf_b.amt" in o and "act.pnl" in o and "act.hit_rate" in o and "act.f:USDKRW" in o
     assert "xp" in out["calc_log"]["entries"] and "act" in out["calc_log"]["entries"]
+
+
+def test_regime_summary_describes_top_factor_moves(session):
+    import pandas as pd
+
+    from app.engine import risk
+    from app.engine.regimes import describe_changes
+
+    row = pd.Series({"USDKRW": 4.9, "KOSPI": -10.5, "DGS10": 0.05})
+    std = pd.Series({"USDKRW": 2.0, "KOSPI": 5.0, "DGS10": 0.3})
+    txt = describe_changes(row, std)
+    assert "원/달러 환율 +4.9%" in txt and "KOSPI −10.5%" in txt and "국채" not in txt
+    ctx = risk.prepare(session, "pf_a", None, 20)
+    regs = risk.find_regimes(ctx, {"USDKRW": 3.0, "KOSPI_IT": -8.0})
+    assert regs and all(r.summary for r in regs)

@@ -40,6 +40,7 @@ with sync_playwright() as p:
     shoot(page, "/data", "02_data")
     shoot(page, "/runs", "03_runs")
     shoot(page, "/portfolios", "04_portfolios")
+    shoot(page, "/backtest", "05_backtest")
     for i, rid in enumerate(run_ids):
         for tab in ("path", "scen", "result", "report"):
             shoot(page, f"/runs/{rid}?tab={tab}", f"1{i}_{tab}_{rid[-4:]}", wait=2500)
