@@ -58,6 +58,13 @@ Render 무료 서버는 재시작하면 컨테이너 안 SQLite가 지워지므�
    끝나면 `/api/meta`의 `synthetic_data`가 `false`가 되고 화면 상단 배지가 사라진다. 이후엔 매일 자동 수집된다.
 5. 수집기가 `error`를 돌려주면 `data/SOURCES.md` §5의 "확인 필요" 항목(ECOS 통계코드, KRX 지수명·ETF 코드)을 실제 응답에 맞춰 고친다.
 
+## 로컬 E2E (자체 검증)
+
+```bash
+scripts/e2e_local.sh        # 합성 데이터 시드 → 서버 :8010 → 분석 3건(실제 Claude 호출) → 화면 12장 캡처 (.e2e/shots)
+```
+실행 상태·검증·사후 검증 요약과 브라우저 콘솔 오류 수를 출력한다. Playwright(Python)와 Chromium 이 필요하다.
+
 ## 심사 기간 운영 체크리스트
 
 - [ ] `.env`에 실제 키 설정, `LLM_MODE` 비움 → `/api/meta`의 `llm_mode`가 `anthropic`

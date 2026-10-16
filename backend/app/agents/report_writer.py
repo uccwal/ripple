@@ -32,8 +32,10 @@ def _render_value(key: str, outputs: dict, scenario: dict) -> str:
         return fmt.signed(v, fmt.shock_digits(unit), unit)
     if key == "aum":
         return f"{v:,.0f}억 원"
-    if key == "reg.n":
+    if key in ("reg.n", "paths.n", "shocks.n"):
         return f"{int(v)}개"
+    if key in ("evidence.n", "hedges.n"):
+        return f"{int(v)}건"
     if key == "horizon":
         return f"{int(v)}영업일"
     if key in ("event.value_text", "event.date"):
@@ -63,6 +65,7 @@ def describe_key(key: str, names: dict[str, str]) -> str:
         "reg.n": "과거 유사 국면 '구간' 수 — 사건·사례 수가 아님", "reg.median": "유사 국면 구간들의 실제 손익 중앙값",
         "reg.low": "유사 국면 실제 손익 최소", "reg.high": "유사 국면 실제 손익 최대",
         "horizon": "분석 기간 (영업일)", "event.value_text": "이벤트 원문의 핵심 수치", "event.date": "이벤트 발표일",
+        "paths.n": "파급 경로 수", "evidence.n": "경로 근거 건수", "shocks.n": "충격 변수 수", "hedges.n": "헤지 제안 수",
         "rule.fx": "헤지 규칙 기준값 — 환율 기여 비중", "rule.sector": "헤지 규칙 기준값 — 업종 기여 비중",
         "rule.rate": "헤지 규칙 기준값 — 금리 기여 비중",
         "act.pnl": "사후 검증 — 발표 후 실제 포트폴리오 손익 (실제 시장 데이터)", "act.days": "사후 검증 관측 기간 (영업일)",
@@ -128,8 +131,14 @@ def _offline_text(state: RunState) -> ReportText:
 
 
 def extra_outputs(state: RunState) -> dict:
-    """계산 로그 외에 보고서가 인용할 수 있는 키: 분석 기간, 이벤트 핵심 수치·발표일."""
+    """계산 로그 외에 보고서가 인용할 수 있는 키: 분석 기간, 이벤트 핵심 수치·발표일, 경로·근거·충격 변수·헤지 개수."""
     out = {"horizon": state["horizon_days"]}
+    paths = state.get("impact_paths") or []
+    if paths:
+        out["paths.n"] = len(paths)
+        out["evidence.n"] = len((state.get("graph") or {}).get("nodes", [])) and sum(len(n.get("evidence", [])) for n in state["graph"]["nodes"])
+    out["shocks.n"] = len((state.get("scenario") or {}).get("shocks", []))
+    out["hedges.n"] = len((state.get("result") or {}).get("hedges", []))
     ev = state.get("event") or {}
     if ev.get("value_text"):
         out["event.value_text"] = ev["value_text"]

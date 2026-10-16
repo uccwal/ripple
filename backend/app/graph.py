@@ -257,6 +257,11 @@ def _allowed_literals(state: RunState) -> list[str]:
     out += [a["name"] for a in (state.get("result") or {}).get("by_asset", [])]
     out += [f.name for f in FACTOR_BY_ID.values()]
     out += [h["title"] for h in (state.get("result") or {}).get("hedges", [])]
+    out.append("95%")  # 추정 범위의 신뢰수준은 모델 상수
+    if ev.get("announced_at"):
+        out.append(f"{str(ev['announced_at'])[:4]}년")  # 발표 연도
+    import re
+    out += re.findall(r"[+\-−]?\d+(?:\.\d+)?\s*(?:%p|%|bp)", state.get("input_text", "") or "")  # 시나리오 문구의 크기
     return sorted({x for x in out if x}, key=len, reverse=True)
 
 

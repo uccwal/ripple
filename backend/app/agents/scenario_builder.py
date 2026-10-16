@@ -92,7 +92,7 @@ def run(state: RunState, stats: dict) -> tuple[dict, dict]:
             + analog_summary_text(stats, [ev_type] if ev_type else None)
             + "\n\n[과거 사례 직후 팩터 변화 (사례별)]\n" + "\n".join(analog_lines)
             + "\n\n[과거 최대 변동폭]\n" + ", ".join(f"{k} ±{v:.2f}{FACTOR_BY_ID[k].unit}" for k, v in stats["hist_max"].items() if k in FACTOR_BY_ID))
-    res = llm.structured(system, user, ScenarioShocks, model=settings.model_default, effort="medium")
+    res = llm.structured(system, user, ScenarioShocks, model=settings.model_default, effort="low")
     if res.parsed is None:
         if res.error != "offline":
             raise llm.LLMError(res.error or "Scenario Builder 실패")

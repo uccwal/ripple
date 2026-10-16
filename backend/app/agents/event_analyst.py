@@ -41,8 +41,8 @@ def run(state: RunState, ev: PolicyEvent) -> tuple[dict, dict]:
         parsed = res.parsed
     # 발표일·출처는 레코드에서 확정되므로 LLM 이 '누락'이라 해도 무시한다. 수치는 실제로 비어 있을 때만 누락.
     missing = [f for f in parsed.missing_fields if f in ("country", "type", "value")]
-    if "value" in missing and parsed.value is not None:
-        missing.remove("value")
+    if "value" in missing and (parsed.value is not None or parsed.type == "regulation"):
+        missing.remove("value")  # 규제·수출통제는 수치가 없는 게 정상이라 누락이 아니다
     parsed.missing_fields = missing
     event = {
         "event_id": ev.event_id, "country": parsed.country, "country_name": COUNTRY_NAME.get(parsed.country, parsed.country),

@@ -10,3 +10,4 @@ dist/
 *.db-shm
 .DS_Store
 frontend/screenshots/
+.e2e/
