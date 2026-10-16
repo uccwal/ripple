@@ -263,5 +263,49 @@
 | POST | `/api/admin/collect` body `{since?, only?: ["fred", …]}` | 수집 시작 (202). 진행 중이면 409 |
 | GET | `/api/admin/collect/run?token=&since=&only=a,b` | 브라우저용 수집 시작 |
 | GET | `/api/admin/collect/status` | 진행 상황 (`collect` 객체와 동일) |
+| GET | `/api/admin/analyze/run?token=&max=5&days=7&portfolio_id=` | 관련성 high · 최근 days일 · 미분석 이벤트를 백그라운드 자동 분석 |
 
 `ADMIN_TOKEN`이 비어 있으면 404. 토큰이 틀리면 403.
+
+
+## 자동 사전분석 · 사후 검증 · 포트폴리오 비교 (2026-10-16 추가)
+
+**자동 사전분석**: 수집이 끝나면 관련성 `high`, 예시 아님, 최근 `AUTO_ANALYZE_DAYS`(기본 7)일, 아직 실행이 없는 이벤트를 `AUTO_ANALYZE_PORTFOLIO`(기본 `pf_a`)로 최대 `AUTO_ANALYZE_MAX`(기본 5)건 분석한다. 그 실행은 `RunState.auto=true`, `RunListItem.auto=true`.
+수집 보고서에 `{"collector": "auto_analyze", "counts": {"started": n, "done": n, "failed": n}}` 가 붙는다.
+
+**`/api/events[].last_run`** (확장)
+```json
+{"run_id": "run_…", "status": "done", "auto": true, "portfolio_id": "pf_a", "portfolio_pnl": -3.8, "pnl_amount": -1240,
+ "validation_status": "pass | warn | fail", "actual_pnl": -2.9, "direction_hit": true, "created_at": "…"}
+```
+
+**`RunState.result.actual`** — 발표일이 과거인 이벤트 분석에만 (시나리오 입력·미래 이벤트는 `null`). 발표 전 마지막 거래일 종가 → `horizon_days` 뒤 종가.
+```json
+{"start": "2022-10-06", "end": "2022-11-03", "days": 20, "horizon": 20, "complete": true,
+ "factors": {"USDKRW": {"name": "원/달러 환율", "unit": "%", "shock": 3.0, "actual": 1.2, "hit": true}},
+ "factor_hit_rate": 0.67, "factors_judged": 3,
+ "by_asset": {"KR_SEMI": -6.1}, "portfolio_pnl": -2.9, "estimate_pnl": -3.8, "direction_hit": true, "abs_error": 0.9}
+```
+`complete=false` 면 관측 기간이 분석 기간에 못 미치는 잠정치. 자산 가격 데이터가 발표 시점을 덮지 못하면 `portfolio_pnl`·`direction_hit`·`abs_error` 는 `null` 이고 팩터 비교만 있다.
+계산 로그 키: `act.pnl`, `act.days`, `act.err`, `act.hit_rate`, `act.f:<factor_id>`; 근거 패널 항목 `act`. 보고서 "사후 검증" 섹션.
+
+**`RunState.result.cross_portfolio`** — 같은 충격값을 모든 모델 포트폴리오에 적용 (첫 행이 현재 포트폴리오, 유사 국면 비교 제외).
+```json
+[{"portfolio_id": "pf_a", "name": "가상 모델 포트폴리오 A", "aum": 32300, "pnl": -3.8, "amount": -1240,
+  "range": {"low": -5.1, "high": -2.6}, "worst_asset": "국내 반도체 대형주", "worst_contribution": -1.4, "current": true, "error": null}]
+```
+계산 로그 키: `xp:<portfolio_id>.pnl`, `xp:<portfolio_id>.amt`; 근거 패널 항목 `xp`. 보고서 3장 "다른 모델 포트폴리오에 같은 시나리오 적용" 표.
+
+**`GET /api/backtest?limit=20`** — 사후 검증이 완료(`complete`)된 이벤트 분석의 요약.
+```json
+{"n_cases": 12, "n_judged": 10, "direction_hit_rate": 0.7, "mean_abs_error": 1.4, "factor_hit_rate": 0.62,
+ "cases": [{"run_id": "…", "title": "…", "portfolio_id": "pf_a", "announced_at": "2025-04-03", "estimate_pnl": -3.8, "actual_pnl": -2.9,
+            "direction_hit": true, "abs_error": 0.9, "factor_hit_rate": 0.67}]}
+```
+
+**`/api/meta.radar`** — 대시보드 상단 레이더 (최근 7일).
+```json
+{"events_7d": 31, "events_7d_high": 9, "events_7d_kr": 6, "runs_7d": 14, "auto_runs_7d": 9,
+ "backtest": {"n_cases": 12, "n_judged": 10, "direction_hit_rate": 0.7, "mean_abs_error": 1.4, "factor_hit_rate": 0.62},
+ "quality_issues": [], "synthetic_remaining": []}
+```

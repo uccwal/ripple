@@ -60,6 +60,11 @@ class Settings:
     # 서버 기동 직후 수집할 기간(일). 재배포마다 최근 데이터를 바로 채운다
     collect_startup_days: int = int(os.getenv("COLLECT_STARTUP_DAYS") or 30)
 
+    # 수집 직후 자동 사전분석: 관련성 high · 최근 N일 · 아직 분석 없는 이벤트를 기본 포트폴리오로 분석 (0 이면 끔)
+    auto_analyze_max: int = int(os.getenv("AUTO_ANALYZE_MAX") or 5)
+    auto_analyze_days: int = int(os.getenv("AUTO_ANALYZE_DAYS") or 7)
+    auto_analyze_portfolio: str = os.getenv("AUTO_ANALYZE_PORTFOLIO") or "pf_a"
+
     fred_api_key: str | None = os.getenv("FRED_API_KEY") or None
     ecos_api_key: str | None = os.getenv("ECOS_API_KEY") or None
     data_go_kr_api_key: str | None = os.getenv("DATA_GO_KR_API_KEY") or None

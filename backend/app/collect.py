@@ -72,6 +72,19 @@ def run(since: date | None = None, only: list[str] | None = None) -> list[dict]:
             log.exception("한국어 구조화 실패")
             reports.append({"collector": "localize", "status": "error", "message": f"{type(e).__name__}: {e}", "counts": {}})
         _state["reports"] = list(reports)
+        # 관련성 high 신규 이벤트 자동 사전분석 (대시보드에 예상 손익이 미리 붙도록)
+        from .auto_analyze import auto_analyze  # noqa: PLC0415
+
+        try:
+            a = auto_analyze()
+            reason = a.get("skipped") or ("대상 없음" if not a.get("started") else None)
+            reports.append({"collector": "auto_analyze", "status": "skipped" if reason else "ok",
+                            "message": "신규 이벤트 자동 사전분석" + (f" ({reason})" if reason else ""),
+                            "counts": {k: v for k, v in a.items() if k != "skipped"}})
+        except Exception as e:  # noqa: BLE001
+            log.exception("자동 사전분석 실패")
+            reports.append({"collector": "auto_analyze", "status": "error", "message": f"{type(e).__name__}: {e}", "counts": {}})
+        _state["reports"] = list(reports)
         return reports
     except Exception as e:  # noqa: BLE001
         _state["error"] = f"{type(e).__name__}: {e}"

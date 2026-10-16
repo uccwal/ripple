@@ -99,6 +99,8 @@ export const RELEVANCE_BADGE: Record<Relevance, { text: string; variant: 'conf-h
 }
 
 export const RELEVANCE_TIP = '포트폴리오 관련성 — 수집 시 Claude가 판정'
+export const AUTO_RUN_TIP = '수집 직후 관련성 높은 이벤트를 기본 포트폴리오로 자동 분석한 결과'
+export const ACTUAL_TIP = '사후 검증 — 발표 전 마지막 거래일 종가 기준 실제 시장 움직임 (이벤트 외 요인 포함)'
 
 /** S2 선택 목록 정렬 순서: 높음 → 중간 → 미평가 → 낮음 */
 export const RELEVANCE_ORDER: Record<Relevance | 'none', number> = { high: 0, mid: 1, none: 2, low: 3 }

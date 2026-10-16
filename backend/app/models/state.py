@@ -73,6 +73,7 @@ class ReportText(BaseModel):
 
 class RunState(TypedDict, total=False):
     run_id: str
+    auto: bool  # 수집 직후 자동 사전분석으로 만든 실행
     parent_run_id: str | None
     entry: Literal["event", "scenario"]
     input_text: str

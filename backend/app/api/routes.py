@@ -50,10 +50,72 @@ def meta(s: Session = Depends(get_session)):
         "events_by_source": [{"source": src, "count": c} for src, c in sources],
         "synthetic_data": synthetic,
         "database": database_info(),
+        "radar": radar(s),
     }
 
 
+def backtest_summary(s: Session, limit: int = 20) -> dict:
+    """사후 검증이 붙은 이벤트 분석(발표 후 분석 기간이 지난 것)의 방향 적중률·오차 요약."""
+    cases = []
+    for r in s.scalars(select(Run).where(Run.entry == "event", Run.status.in_(("done", "partial"))).order_by(Run.created_at.desc())):
+        st = r.state or {}
+        act = (st.get("result") or {}).get("actual")
+        if not act or not act.get("complete"):
+            continue
+        cases.append({"run_id": r.run_id, "title": r.title or st.get("title"), "portfolio_id": r.portfolio_id,
+                      "announced_at": (st.get("event") or {}).get("announced_at"),
+                      "estimate_pnl": act.get("estimate_pnl"), "actual_pnl": act.get("portfolio_pnl"),
+                      "direction_hit": act.get("direction_hit"), "abs_error": act.get("abs_error"),
+                      "factor_hit_rate": act.get("factor_hit_rate")})
+    judged = [c for c in cases if c["direction_hit"] is not None]
+    errs = [c["abs_error"] for c in cases if c["abs_error"] is not None]
+    frates = [c["factor_hit_rate"] for c in cases if c["factor_hit_rate"] is not None]
+    return {
+        "n_cases": len(cases), "n_judged": len(judged),
+        "direction_hit_rate": (sum(1 for c in judged if c["direction_hit"]) / len(judged)) if judged else None,
+        "mean_abs_error": (sum(errs) / len(errs)) if errs else None,
+        "factor_hit_rate": (sum(frates) / len(frates)) if frates else None,
+        "cases": cases[:limit],
+    }
+
+
+def radar(s: Session) -> dict:
+    """대시보드 상단 레이더: 최근 7일 이벤트·관련성 high·자동 분석, 사후 검증 적중률, 데이터 점검 건수."""
+    since = date.today() - timedelta(days=7)
+    ev7 = s.scalars(select(PolicyEvent).where(PolicyEvent.announced_at >= since, PolicyEvent.is_demo.is_(False))).all()
+    runs7 = s.scalars(select(Run).where(Run.created_at >= datetime.combine(since, datetime.min.time()))).all()
+    bt = backtest_summary(s, limit=0)
+    series = _series_status(s)
+    return {
+        "events_7d": len(ev7), "events_7d_high": sum(1 for e in ev7 if e.relevance == "high"),
+        "events_7d_kr": sum(1 for e in ev7 if e.country == "KR"),
+        "runs_7d": len(runs7), "auto_runs_7d": sum(1 for r in runs7 if (r.state or {}).get("auto")),
+        "backtest": {k: v for k, v in bt.items() if k != "cases"},
+        "quality_issues": [x["series_id"] for x in series if x["in_use"] and x["quality"] in ("stale", "gappy", "empty")],
+        "synthetic_remaining": [x["series_id"] for x in series if x["synthetic"] and x["in_use"]],
+    }
+
+
+@router.get("/backtest")
+def backtest(limit: int = Query(20, le=200), s: Session = Depends(get_session)):
+    return backtest_summary(s, limit)
+
+
 # ------------------------------------------------------------------ events
+
+def _last_run_view(r: Run | None) -> dict | None:
+    if r is None:
+        return None
+    st = r.state or {}
+    res = st.get("result") or {}
+    act = res.get("actual") or {}
+    return {"run_id": r.run_id, "status": r.status, "auto": bool(st.get("auto")),
+            "portfolio_id": r.portfolio_id, "portfolio_pnl": res.get("portfolio_pnl"),
+            "pnl_amount": res.get("pnl_amount"),
+            "validation_status": (st.get("validation") or {}).get("status"),
+            "actual_pnl": act.get("portfolio_pnl"), "direction_hit": act.get("direction_hit"),
+            "created_at": r.created_at.isoformat() if r.created_at else None}
+
 
 def _event_view(e: PolicyEvent, last_run: Run | None) -> dict:
     return {
@@ -62,8 +124,7 @@ def _event_view(e: PolicyEvent, last_run: Run | None) -> dict:
         "targets": e.targets, "value": e.value, "value_text": e.value_text, "announced_at": e.announced_at.isoformat(),
         "source": e.source, "source_url": e.source_url, "is_demo": e.is_demo,
         "title_orig": e.title_orig, "relevance": e.relevance,
-        "last_run": ({"run_id": last_run.run_id, "portfolio_pnl": (last_run.state.get("result") or {}).get("portfolio_pnl")}
-                     if last_run else None),
+        "last_run": _last_run_view(last_run),
     }
 
 
@@ -184,6 +245,7 @@ def _run_view(s: Session, r: Run) -> dict:
     pf = s.get(Portfolio, r.portfolio_id)
     out = {
         "run_id": r.run_id, "parent_run_id": r.parent_run_id, "entry": r.entry, "status": r.status, "error": r.error,
+        "auto": bool(st.get("auto")),
         "title": r.title or st.get("title") or r.input_text, "input_text": r.input_text,
         "portfolio": {"portfolio_id": pf.portfolio_id, "name": pf.name, "aum": pf.aum} if pf else None,
         "horizon_days": r.horizon_days, "as_of": (st.get("calc_log") or {}).get("inputs", {}).get("as_of") or (r.as_of.isoformat() if r.as_of else None),
@@ -209,7 +271,9 @@ def list_runs(limit: int = Query(50, le=200), s: Session = Depends(get_session))
                     "title": r.title or st.get("title") or r.input_text, "portfolio_name": pf.name if pf else r.portfolio_id,
                     "portfolio_pnl": (st.get("result") or {}).get("portfolio_pnl"),
                     "validation_status": (st.get("validation") or {}).get("status") or ("fail" if r.status == "failed" else None),
-                    "status": r.status})
+                    "status": r.status, "auto": bool(st.get("auto")),
+                    "actual_pnl": ((st.get("result") or {}).get("actual") or {}).get("portfolio_pnl"),
+                    "direction_hit": ((st.get("result") or {}).get("actual") or {}).get("direction_hit")})
     return out
 
 
@@ -391,9 +455,7 @@ def _series_quality(count: int, first: date | None, last: date | None, today: da
     return {"stale_bdays": stale, "coverage": coverage, "quality": quality}
 
 
-@router.get("/data/status")
-def data_status(s: Session = Depends(get_session)):
-    """시리즈별 출처·기간·건수·실데이터 여부, 이벤트 소스별 건수, 마지막 수집 결과. 토큰 불필요(읽기 전용)."""
+def _series_status(s: Session) -> list[dict]:
     from ..engine.catalog import FACTOR_BY_ID as _F  # noqa: PLC0415
 
     rows = s.execute(
@@ -418,6 +480,25 @@ def data_status(s: Session = Depends(get_session)):
             "factor_name": _F[sid].name if sid in _F else None,
             **q,
         })
+    return series
+
+
+@router.get("/admin/analyze/run")
+def admin_analyze_run(token: str | None = Query(default=None), max: int = Query(5, ge=1, le=50), days: int = Query(7, ge=1, le=400),
+                      portfolio_id: str | None = None):
+    """관련성 high · 최근 days 일 · 미분석 이벤트를 백그라운드에서 자동 분석한다 (브라우저용)."""
+    _check_admin(token)
+    from ..auto_analyze import auto_analyze  # noqa: PLC0415
+
+    threading.Thread(target=auto_analyze, kwargs={"max_runs": max, "days": days, "portfolio_id": portfolio_id},
+                     daemon=True, name="auto-analyze").start()
+    return {"started": True, "max": max, "days": days, "portfolio_id": portfolio_id or settings.auto_analyze_portfolio}
+
+
+@router.get("/data/status")
+def data_status(s: Session = Depends(get_session)):
+    """시리즈별 출처·기간·건수·실데이터 여부, 이벤트 소스별 건수, 마지막 수집 결과. 토큰 불필요(읽기 전용)."""
+    series = _series_status(s)
     ev_rows = s.execute(select(PolicyEvent.source, PolicyEvent.is_demo, func.count(), func.min(PolicyEvent.announced_at),
                                func.max(PolicyEvent.announced_at)).group_by(PolicyEvent.source, PolicyEvent.is_demo)).all()
     events = [{"source": src, "is_demo": demo, "count": c, "first_date": d0.isoformat() if d0 else None,

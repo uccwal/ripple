@@ -1,11 +1,21 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
+import RpBadge from '@/components/common/RpBadge.vue'
 import SkeletonBar from '@/components/common/SkeletonBar.vue'
 import { useMetaStore } from '@/stores/meta'
 import { formatDelta } from '@/utils/format'
 
+/** S1 우측 상단 레이더: 오늘 수집 · 최근 7일 · 자동 분석 · 사후 검증 적중률 · 데이터 상태 */
 const metaStore = useMetaStore()
 const { meta, state, error } = storeToRefs(metaStore)
+
+const radar = computed(() => meta.value?.radar ?? null)
+const hitPct = computed(() => {
+  const r = radar.value?.backtest.direction_hit_rate
+  return r == null ? null : Math.round(r * 100)
+})
+const dataOk = computed(() => radar.value != null && radar.value.quality_issues.length === 0 && radar.value.synthetic_remaining.length === 0)
 </script>
 
 <template>
@@ -22,6 +32,33 @@ const { meta, state, error } = storeToRefs(metaStore)
         </li>
       </ul>
       <div v-else class="text-small text-ink-3">오늘 수집된 발표가 없습니다.</div>
+
+      <template v-if="radar">
+        <div class="mt-4 border-t border-line-subtle pt-3 text-caption font-bold text-ink-3">최근 7일</div>
+        <dl class="tnum m-0 mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1.5 text-small">
+          <dt class="text-ink-3">정책 이벤트</dt>
+          <dd class="m-0 text-right font-semibold">
+            {{ radar.events_7d }}<span class="font-normal text-ink-3"> · 관련성 높음 {{ radar.events_7d_high }} · 한국 {{ radar.events_7d_kr }}</span>
+          </dd>
+          <dt class="text-ink-3">분석 실행</dt>
+          <dd class="m-0 text-right font-semibold">
+            {{ radar.runs_7d }}<span class="font-normal text-ink-3"> · 자동 {{ radar.auto_runs_7d }}</span>
+          </dd>
+          <dt class="text-ink-3" title="발표 후 분석 기간이 지난 이벤트 분석의 포트폴리오 손익 방향 적중률 (사후 검증)">방향 적중률</dt>
+          <dd class="m-0 text-right font-semibold">
+            <template v-if="hitPct != null">
+              {{ hitPct }}%<span class="font-normal text-ink-3"> · {{ radar.backtest.n_judged }}건</span>
+            </template>
+            <span v-else class="font-normal text-ink-3">검증 가능한 분석 없음</span>
+          </dd>
+          <dt class="text-ink-3">데이터</dt>
+          <dd class="m-0 flex justify-end">
+            <RpBadge v-if="dataOk" variant="pass">✓ 실데이터 · 최신</RpBadge>
+            <RpBadge v-else-if="radar.synthetic_remaining.length" variant="warn" :tooltip="radar.synthetic_remaining.join(', ')">⚠ 합성 {{ radar.synthetic_remaining.length }}</RpBadge>
+            <RpBadge v-else variant="warn" :tooltip="radar.quality_issues.join(', ')">⚠ 점검 {{ radar.quality_issues.length }}</RpBadge>
+          </dd>
+        </dl>
+      </template>
     </template>
     <div v-else-if="state === 'error'" class="mt-2 flex flex-col items-start gap-2 text-small text-ink-2">
       <span>{{ error }}</span>

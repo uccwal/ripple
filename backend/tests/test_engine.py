@@ -152,3 +152,32 @@ def test_analog_summary_and_betas_in_stats(session):
     b = stats["betas"]["KR_SEMI"]
     assert set(b["factors"]) == {"KOSPI_IT", "USDKRW"} and b["factors"]["KOSPI_IT"]["t"] is not None
     assert stats["available"] == [f for f in risk.FACTOR_IDS if f not in stats["unavailable"]]
+
+
+def test_actual_outcome_and_cross_portfolio(session):
+    from datetime import date
+
+    from app.engine import outcome, risk
+    from app.models.tables import Holding
+
+    holdings = list(session.scalars(__import__("sqlalchemy").select(Holding).where(Holding.portfolio_id == "pf_a")))
+    shocks = {"USDKRW": 3.0, "KOSPI_IT": -8.0, "DGS10": -0.2}
+    act = outcome.actual_outcome(session, holdings, date(2022, 6, 16), 20, shocks, estimate_pnl=-3.0)
+    assert act is not None and act["complete"] is True and act["days"] == 20
+    assert act["start"] < "2022-06-16" <= act["end"]
+    assert set(shocks) <= set(act["factors"]) and act["factors"]["USDKRW"]["hit"] in (True, False)
+    assert act["factors"]["WTI"]["hit"] is None  # 충격이 없는 변수는 판정하지 않는다
+    assert act["portfolio_pnl"] is not None and act["abs_error"] is not None and act["direction_hit"] in (True, False)
+    assert 0 <= act["factor_hit_rate"] <= 1 and act["factors_judged"] == 3
+    # 발표일이 데이터 마지막 날이면 None, 아직 horizon 이 안 지났으면 잠정
+    assert outcome.actual_outcome(session, holdings, date(2099, 1, 1), 20, shocks, None) is None
+
+    ctx = risk.prepare(session, "pf_a", None, 20)
+    out = risk.compute(ctx, shocks, [], "run_t")
+    cross = outcome.cross_portfolio(session, "pf_a", ctx.as_of, 20, shocks, "run_t")
+    assert [c["portfolio_id"] for c in cross] == ["pf_b"] and cross[0]["pnl"] is not None and cross[0]["error"] is None
+    risk.attach_extras(out, ctx, act, cross)
+    r, o = out["result"], out["calc_log"]["outputs"]
+    assert r["cross_portfolio"][0]["current"] is True and r["cross_portfolio"][1]["portfolio_id"] == "pf_b"
+    assert "xp:pf_b.pnl" in o and "xp:pf_b.amt" in o and "act.pnl" in o and "act.hit_rate" in o and "act.f:USDKRW" in o
+    assert "xp" in out["calc_log"]["entries"] and "act" in out["calc_log"]["entries"]

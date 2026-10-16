@@ -5,7 +5,8 @@ import CountryCode from '@/components/common/CountryCode.vue'
 import RpBadge from '@/components/common/RpBadge.vue'
 import RpButton from '@/components/common/RpButton.vue'
 import { formatDate } from '@/utils/format'
-import { RELEVANCE_BADGE, RELEVANCE_TIP } from '@/utils/labels'
+import { formatPct } from '@/utils/format'
+import { ACTUAL_TIP, AUTO_RUN_TIP, RELEVANCE_BADGE, RELEVANCE_TIP } from '@/utils/labels'
 
 defineProps<{ event: EventSummary }>()
 </script>
@@ -34,9 +35,21 @@ defineProps<{ event: EventSummary }>()
       <p class="m-0 mt-0.5 text-small text-ink-2">{{ event.summary }}</p>
     </div>
 
-    <div v-if="event.value_text" class="flex items-center justify-between rounded bg-bg px-3.5 py-2.5">
-      <span class="text-caption font-normal text-ink-3">핵심 수치</span>
-      <span class="tnum text-xl font-bold text-navy-900">{{ event.value_text }}</span>
+    <div v-if="event.value_text || event.last_run?.portfolio_pnl != null" class="grid gap-2" :class="event.value_text && event.last_run?.portfolio_pnl != null ? 'grid-cols-2' : 'grid-cols-1'">
+      <div v-if="event.value_text" class="flex items-center justify-between rounded bg-bg px-3.5 py-2.5">
+        <span class="text-caption font-normal text-ink-3">핵심 수치</span>
+        <span class="tnum text-xl font-bold text-navy-900">{{ event.value_text }}</span>
+      </div>
+      <div v-if="event.last_run?.portfolio_pnl != null" class="flex items-center justify-between rounded bg-bg px-3.5 py-2.5">
+        <span class="flex flex-col text-caption font-normal text-ink-3">
+          <span>예상 손익 <span v-if="event.last_run.auto" class="text-navy-700" :title="AUTO_RUN_TIP">· 자동</span></span>
+          <span v-if="event.last_run.actual_pnl != null" class="tnum text-micro" :title="ACTUAL_TIP">
+            실제 {{ formatPct(event.last_run.actual_pnl) }}
+            <span :class="event.last_run.direction_hit ? 'text-pass' : 'text-warn'">{{ event.last_run.direction_hit ? '방향 적중' : '방향 불일치' }}</span>
+          </span>
+        </span>
+        <CalcNum class="text-xl font-bold" :value="event.last_run.portfolio_pnl" :to="{ name: 'run', params: { id: event.last_run.run_id } }" label="예상 손익" />
+      </div>
     </div>
 
     <div class="flex items-center gap-2">
@@ -45,16 +58,17 @@ defineProps<{ event: EventSummary }>()
         <a v-if="event.source_url" :href="event.source_url" target="_blank" rel="noopener noreferrer" class="text-ink-3 no-underline hover:underline">{{ event.source }}</a>
         <template v-else>{{ event.source }}</template>
       </span>
-      <span v-if="event.last_run" class="text-caption font-normal text-ink-2">
-        · 최근 분석
-        <CalcNum
-          class="font-bold"
-          :value="event.last_run.portfolio_pnl"
-          :to="{ name: 'run', params: { id: event.last_run.run_id } }"
-          label="최근 분석 손익"
-        />
-      </span>
-      <RpButton class="ml-auto" variant="outline" size="sm" :to="{ name: 'new', query: { event: event.event_id } }">분석하기</RpButton>
+      <RpBadge v-if="event.last_run?.validation_status === 'pass'" variant="pass" tooltip="Validator 규칙 통과">✓ 검증</RpBadge>
+      <RpBadge v-else-if="event.last_run?.validation_status === 'warn'" variant="warn" tooltip="경고가 있는 분석 결과">⚠ 경고</RpBadge>
+      <RpButton
+        v-if="event.last_run"
+        class="ml-auto"
+        variant="outline"
+        size="sm"
+        :to="{ name: 'run', params: { id: event.last_run.run_id } }"
+        >결과 보기</RpButton
+      >
+      <RpButton v-else class="ml-auto" variant="outline" size="sm" :to="{ name: 'new', query: { event: event.event_id } }">분석하기</RpButton>
     </div>
   </article>
 </template>

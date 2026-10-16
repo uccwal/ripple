@@ -30,6 +30,46 @@ export interface Meta {
   events_by_source: { source: string; count: number }[]
   synthetic_data: boolean
   database: DatabaseInfo
+  radar: Radar
+}
+
+/** 대시보드 상단 레이더 (최근 7일) */
+export interface Radar {
+  events_7d: number
+  events_7d_high: number
+  events_7d_kr: number
+  runs_7d: number
+  auto_runs_7d: number
+  backtest: BacktestStats
+  quality_issues: string[]
+  synthetic_remaining: string[]
+}
+
+export interface BacktestStats {
+  n_cases: number
+  n_judged: number
+  /** 0~1 */
+  direction_hit_rate: number | null
+  /** %p */
+  mean_abs_error: number | null
+  /** 0~1 */
+  factor_hit_rate: number | null
+}
+
+export interface BacktestCase {
+  run_id: string
+  title: string
+  portfolio_id: string
+  announced_at: string | null
+  estimate_pnl: number | null
+  actual_pnl: number | null
+  direction_hit: boolean | null
+  abs_error: number | null
+  factor_hit_rate: number | null
+}
+
+export interface BacktestSummary extends BacktestStats {
+  cases: BacktestCase[]
 }
 
 /** DB 종류. sqlite 는 컨테이너 안 파일이라 재배포 때 초기화된다 */
@@ -58,7 +98,22 @@ export interface EventSummary {
   /** 원문 제목 (외국어 이벤트를 한국어로 구조화한 경우). 한국어·예시 이벤트는 null */
   title_orig: string | null
   relevance: Relevance | null
-  last_run: { run_id: string; portfolio_pnl: number | null } | null
+  last_run: EventLastRun | null
+}
+
+/** 이벤트의 최근 분석 (자동 사전분석 포함) */
+export interface EventLastRun {
+  run_id: string
+  status: RunStatus
+  auto: boolean
+  portfolio_id: string
+  portfolio_pnl: number | null
+  pnl_amount: number | null
+  validation_status: ValidationStatus | null
+  /** 사후 검증 — 발표 후 실제 손익 (데이터 없으면 null) */
+  actual_pnl: number | null
+  direction_hit: boolean | null
+  created_at: string | null
 }
 
 export interface EventDetail extends EventSummary {
@@ -257,6 +312,47 @@ export interface RunResult {
   regime_estimate: { median: number; low: number; high: number; n: number } | null
   hedges: Hedge[]
   calc_log_id: string
+  /** 사후 검증 — 발표일이 과거인 이벤트 분석에만 (시나리오 입력·미래 이벤트는 null) */
+  actual: ActualOutcome | null
+  /** 같은 충격값을 모든 모델 포트폴리오에 적용. 첫 행이 현재 포트폴리오 */
+  cross_portfolio: CrossPortfolioRow[]
+}
+
+export interface ActualFactor {
+  name: string
+  unit: ShockUnit
+  shock: number | null
+  actual: number
+  hit: boolean | null
+}
+
+export interface ActualOutcome {
+  start: string
+  end: string
+  days: number
+  horizon: number
+  complete: boolean
+  factors: Record<string, ActualFactor>
+  factor_hit_rate: number | null
+  factors_judged: number
+  by_asset: Record<string, number | null>
+  portfolio_pnl: number | null
+  estimate_pnl: number | null
+  direction_hit: boolean | null
+  abs_error: number | null
+}
+
+export interface CrossPortfolioRow {
+  portfolio_id: string
+  name: string
+  aum: number
+  pnl: number | null
+  amount: number | null
+  range: { low: number; high: number } | null
+  worst_asset: string | null
+  worst_contribution: number | null
+  current: boolean
+  error: string | null
 }
 
 export interface ValidationIssue {
@@ -292,6 +388,8 @@ export interface RunState {
   entry: Entry
   status: RunStatus
   error: string | null
+  /** 수집 직후 자동 사전분석으로 만든 실행 */
+  auto: boolean
   title: string
   input_text: string | null
   portfolio: { portfolio_id: string; name: string; aum: number }
@@ -324,6 +422,9 @@ export interface RunListItem {
   portfolio_pnl: number | null
   validation_status: ValidationStatus | null
   status: RunStatus
+  auto: boolean
+  actual_pnl: number | null
+  direction_hit: boolean | null
 }
 
 export interface ScenarioPatchRequest {

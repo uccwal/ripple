@@ -388,3 +388,59 @@ def _entries(ctx: Context, shocks, by_asset, factor_rows, total, rng, regimes, r
             "note": "충격값의 근거와 과거 유사 국면에서 같은 변수가 실제로 움직인 크기입니다.",
         }
     return e
+
+
+# ---------------------------------------------------------------- 사후 검증 · 포트폴리오 비교 결과 결합
+
+def attach_extras(out: dict, ctx: Context, actual: dict | None, cross: list[dict]) -> None:
+    """compute() 결과에 사후 검증(actual)과 포트폴리오 비교(cross_portfolio)를 붙이고 보고서 키·근거 패널 항목을 만든다."""
+    result, calc = out["result"], out["calc_log"]
+    outputs, entries = calc["outputs"], calc["entries"]
+    worst = next((a for a in result["by_asset"] if a["asset_id"] == (result["top_contributors"][0] if result["top_contributors"] else None)), None)
+    main = {"portfolio_id": ctx.portfolio.portfolio_id, "name": ctx.portfolio.name, "aum": ctx.portfolio.aum,
+            "pnl": result["portfolio_pnl"], "amount": result["pnl_amount"], "range": result["range"],
+            "worst_asset": worst["name"] if worst else None, "worst_contribution": worst["contribution"] if worst else None,
+            "current": True, "error": None}
+    result["cross_portfolio"] = [main] + list(cross)
+    rows = []
+    for row in result["cross_portfolio"]:
+        if row["pnl"] is None:
+            continue
+        outputs[f"xp:{row['portfolio_id']}.pnl"] = row["pnl"]
+        outputs[f"xp:{row['portfolio_id']}.amt"] = row["amount"]
+        rows.append([_cell(row["name"] + (" (현재)" if row["current"] else "")), _cell(f"{row['aum']:,.0f}억 원"),
+                     _cell(fmt.signed(row["pnl"]), row["pnl"]), _cell(fmt.amount(row["amount"]), row["pnl"]),
+                     _cell(row["worst_asset"] or "-")])
+    if len(rows) > 1:
+        entries["xp"] = {
+            "title": "포트폴리오 비교", "value": None, "value_text": f"{len(rows)}개 포트폴리오",
+            "sub": "같은 충격값을 각 모델 포트폴리오에 적용 (유사 국면 비교 제외)",
+            "formula": "ΔP⁽ᵖ⁾ = Σᵢ wᵢ⁽ᵖ⁾ · Σₖ βᵢₖ · Δfₖ", "columns": ["포트폴리오", "운용자산", "예상 손익", "금액", "최대 손실 기여"],
+            "rows": rows, "note": "포트폴리오마다 자산별 베타를 같은 창에서 다시 추정했습니다.",
+        }
+
+    result["actual"] = actual
+    if actual:
+        outputs["act.days"] = actual["days"]
+        if actual["portfolio_pnl"] is not None:
+            outputs["act.pnl"] = actual["portfolio_pnl"]
+        if actual["abs_error"] is not None:
+            outputs["act.err"] = actual["abs_error"]
+        if actual["factor_hit_rate"] is not None:
+            outputs["act.hit_rate"] = round(actual["factor_hit_rate"] * 100)
+        frows = []
+        for k, f in actual["factors"].items():
+            outputs[f"act.f:{k}"] = f["actual"]
+            d = fmt.shock_digits(f["unit"])
+            frows.append([_cell(f["name"]), _cell(fmt.signed(f["shock"], d, f["unit"]) if f["shock"] is not None else "-"),
+                          _cell(fmt.signed(f["actual"], d, f["unit"]), f["actual"]),
+                          _cell("적중" if f["hit"] else ("불일치" if f["hit"] is False else "-"))])
+        entries["act"] = {
+            "title": "사후 검증 — 실제 시장 움직임", "value": actual["portfolio_pnl"],
+            "value_text": fmt.signed(actual["portfolio_pnl"]) if actual["portfolio_pnl"] is not None else "자산 데이터 부족",
+            "sub": (f"{actual['start']} → {actual['end']} · {actual['days']}영업일" + ("" if actual["complete"] else " (잠정)")
+                    + (f" · 충격 방향 적중 {outputs['act.hit_rate']}%" if "act.hit_rate" in outputs else "")),
+            "formula": "실제 ΔP = Σᵢ wᵢ · Rᵢ(발표 전 종가 → 20영업일 뒤 종가)\n적중 = sign(충격값) == sign(실제 변화)",
+            "columns": ["변수", "시나리오 충격", "실제 변화", "방향"], "rows": frows,
+            "note": "발표 전 마지막 거래일 종가를 기준으로 삼았습니다. 실제 움직임에는 이 이벤트 외의 요인도 섞여 있습니다.",
+        }

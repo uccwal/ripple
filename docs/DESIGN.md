@@ -129,6 +129,12 @@ PostgreSQL 하나에 시계열, 정책 이벤트, 포트폴리오, 실행 이력
 
 수집한 모든 시리즈는 `series.license`에 이용 조건을 남기고, `data/SOURCES.md`와 기획서 부록에 같은 내용을 기재합니다.
 
+**자동 사전분석·사후 검증·포트폴리오 비교 (2026-10-16)**
+
+- 수집이 끝나면 관련성 high 신규 이벤트를 기본 포트폴리오로 자동 분석해 대시보드 카드에 예상 손익을 붙인다 (`backend/app/auto_analyze.py`, 상한 `AUTO_ANALYZE_MAX`).
+- Risk Engine 은 발표일이 과거인 이벤트에 대해 발표 전 마지막 거래일 종가 → horizon 뒤 종가의 실제 팩터 변화·자산 수익률·포트폴리오 손익을 계산하고, 시나리오 충격의 방향 적중과 추정 오차를 `result.actual` 에 남긴다 (`engine/outcome.py`). 보고서·근거 패널·`/api/backtest` 집계에 쓰인다.
+- 같은 충격값을 다른 모델 포트폴리오에도 적용해 `result.cross_portfolio` 로 비교한다 (유사 국면 비교는 생략).
+
 ## 5. API 명세
 
 FastAPI REST API이며, Agent 실행 진행 상황은 **SSE(Server-Sent Events)** 로 화면에 실시간 전달합니다.

@@ -18,8 +18,18 @@ def _render_value(key: str, outputs: dict, scenario: dict) -> str:
     v = outputs[key]
     if key in ("pnl", "range.low", "range.high") or key.startswith("reg.") and key != "reg.n" or key.endswith(".ret") or key.endswith(".pnl"):
         return fmt.signed(v)
-    if key == "amt":
+    if key == "amt" or key.endswith(".amt"):
         return fmt.amount(v)
+    if key == "act.days":
+        return f"{int(v)}영업일"
+    if key == "act.hit_rate":
+        return f"{int(v)}%"
+    if key == "act.err":
+        return f"{v:.1f}%p"
+    if key.startswith("act.f:"):
+        fid = key[6:]
+        unit = FACTOR_BY_ID[fid].unit if fid in FACTOR_BY_ID else "%"
+        return fmt.signed(v, fmt.shock_digits(unit), unit)
     if key == "aum":
         return f"{v:,.0f}억 원"
     if key == "reg.n":
@@ -55,6 +65,8 @@ def describe_key(key: str, names: dict[str, str]) -> str:
         "horizon": "분석 기간 (영업일)", "event.value_text": "이벤트 원문의 핵심 수치", "event.date": "이벤트 발표일",
         "rule.fx": "헤지 규칙 기준값 — 환율 기여 비중", "rule.sector": "헤지 규칙 기준값 — 업종 기여 비중",
         "rule.rate": "헤지 규칙 기준값 — 금리 기여 비중",
+        "act.pnl": "사후 검증 — 발표 후 실제 포트폴리오 손익 (실제 시장 데이터)", "act.days": "사후 검증 관측 기간 (영업일)",
+        "act.err": "추정 손익과 실제 손익의 차이 (절댓값)", "act.hit_rate": "충격 변수 방향 적중률 (실제 변화와 부호 일치 비율)",
     }
     if key in fixed:
         return fixed[key]
@@ -71,6 +83,12 @@ def describe_key(key: str, names: dict[str, str]) -> str:
         return f"{FACTOR_BY_ID[fid].name if fid in FACTOR_BY_ID else fid} 충격값 (시나리오)"
     if key.startswith("hedge."):
         return "헤지 규칙이 측정한 기여 비중"
+    if key.startswith("act.f:"):
+        fid = key[6:]
+        return f"{FACTOR_BY_ID[fid].name if fid in FACTOR_BY_ID else fid} 발표 후 실제 변화"
+    if key.startswith("xp:"):
+        pid, _, attr = key[3:].partition(".")
+        return f"포트폴리오 {pid}에 같은 시나리오를 적용한 " + ("예상 손익 금액" if attr == "amt" else "예상 손익")
     if key.startswith("regime."):
         return "개별 유사 국면 구간의 유사도/실제 손익"
     return ""
@@ -193,10 +211,35 @@ def _assemble(state: RunState, text: ReportText, outputs: dict) -> tuple[str, li
     for aid in r["top_contributors"]:
         a = next(x for x in r["by_asset"] if x["asset_id"] == aid)
         lines.append(f"| {a['name']} | {{{{h:{aid}.weight}}}} | {{{{h:{aid}.ret}}}} | {{{{h:{aid}.contribution}}}} |")
+    others = [x for x in (r.get("cross_portfolio") or []) if not x.get("current") and x.get("pnl") is not None]
+    if others:
+        lines += ["", "### 다른 모델 포트폴리오에 같은 시나리오 적용", "", "| 포트폴리오 | 예상 손익 | 금액 | 최대 손실 기여 자산 |", "| --- | --- | --- | --- |"]
+        for x in others:
+            lines.append(f"| {x['name']} | {{{{xp:{x['portfolio_id']}.pnl}}}} | {{{{xp:{x['portfolio_id']}.amt}}}} | {x['worst_asset'] or '-'} |")
     lines += ["", "## 4. 헤지 제안", ""]
     for h in r["hedges"]:
         lines.append(f"- **{h['title']}** — {h['why_tpl']} · 적용 규칙: {h['rule_tpl']} · `engine/hedge.py`")
-    lines += ["", text.hedge_commentary, "", "## 5. 데이터 출처", ""]
+    lines += ["", text.hedge_commentary, ""]
+    sec = 5
+    act = r.get("actual")
+    if act:
+        lines += [f"## {sec}. 사후 검증 — 발표 후 실제 시장 움직임", ""]
+        sec += 1
+        tail = "" if act["complete"] else " 관측 기간이 분석 기간에 못 미쳐 잠정치다."
+        if act.get("portfolio_pnl") is not None:
+            lines.append("발표 전 마지막 거래일 종가를 기준으로 {{act.days}} 뒤 실제 포트폴리오 손익은 {{act.pnl}}이며, "
+                         "팩터 모델 추정 {{pnl}}과의 차이는 {{act.err}}이다." + tail)
+        else:
+            lines.append("자산 가격 데이터가 발표 시점을 덮지 못해 포트폴리오 실제 손익은 계산하지 않았다. 팩터 변화만 비교한다." + tail)
+        if "factor_hit_rate" in act and act["factor_hit_rate"] is not None:
+            lines.append("시나리오 충격 변수의 방향 적중률은 {{act.hit_rate}}이다.")
+        lines += ["", "| 변수 | 시나리오 충격 | 실제 변화 | 방향 |", "| --- | --- | --- | --- |"]
+        for k, f in act["factors"].items():
+            shock = f"{{{{f:{k}}}}}" if f.get("shock") is not None else "-"
+            mark = "적중" if f.get("hit") else ("불일치" if f.get("hit") is False else "-")
+            lines.append(f"| {f['name']} | {shock} | {{{{act.f:{k}}}}} | {mark} |")
+        lines += [""]
+    lines += [f"## {sec}. 데이터 출처", ""]
     for c in citations:
         flag = " (합성 데이터)" if c["synthetic"] else ""
         lines.append(f"[{c['n']}] {c['name']}{flag} · 수집 {c['collected_at'] or '-'} · {c['license'] or '라이선스 미기재'}")

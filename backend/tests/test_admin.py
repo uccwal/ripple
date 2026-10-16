@@ -27,7 +27,7 @@ def test_admin_collect_requires_token_and_starts(monkeypatch):
 
 def test_collect_run_skips_without_keys():
     reports = collect.run(only=["fred", "ecos"])
-    assert {r["collector"] for r in reports} == {"fred", "ecos", "bok_rate_events", "fed_rate_events", "localize"}
+    assert {r["collector"] for r in reports} == {"fred", "ecos", "bok_rate_events", "fed_rate_events", "localize", "auto_analyze"}
     assert all(r["status"] == "skipped" for r in reports)  # 키 없음 · offline
 
 

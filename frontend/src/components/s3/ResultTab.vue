@@ -5,7 +5,9 @@ import CalcNum from '@/components/common/CalcNum.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { useUiStore } from '@/stores/ui'
 import { formatPct, formatRange, formatWeight, pnlColor } from '@/utils/format'
+import ActualCard from './ActualCard.vue'
 import AssetPnlBars from './AssetPnlBars.vue'
+import CrossPortfolioCard from './CrossPortfolioCard.vue'
 
 const props = defineProps<{ run: RunState }>()
 const ui = useUiStore()
@@ -93,6 +95,11 @@ function openAsset(id: string): void {
           </button>
         </section>
       </div>
+    </div>
+
+    <div v-if="result.actual || (result.cross_portfolio?.length ?? 0) > 1" class="grid grid-cols-2 items-start gap-4">
+      <ActualCard v-if="result.actual" :run="run" :actual="result.actual" />
+      <CrossPortfolioCard v-if="(result.cross_portfolio?.length ?? 0) > 1" :run-id="run.run_id" :rows="result.cross_portfolio" />
     </div>
 
     <section class="rp-card overflow-hidden">

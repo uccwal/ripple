@@ -106,3 +106,42 @@ def test_validation_errors(client):
     d = _wait(client, rid)
     assert d["status"] == "failed" and "변수" in d["error"]
     assert d["steps"][2]["status"] == "failed"
+
+
+def test_event_run_has_actual_and_cross_portfolio(client):
+    """과거 이벤트 분석에는 사후 검증과 포트폴리오 비교가 붙고, 보고서에 그 섹션이 들어간다."""
+    rid = client.post("/api/runs", json={"entry": "event", "event_id": "ev_hist_2022_us_chip_export", "portfolio_id": "pf_a"}).json()["run_id"]
+    d = _wait(client, rid)
+    assert d["status"] in ("done", "partial") and d["auto"] is False
+    act = d["result"]["actual"]
+    assert act and act["complete"] and act["direction_hit"] in (True, False)
+    assert [x["portfolio_id"] for x in d["result"]["cross_portfolio"]] == ["pf_a", "pf_b"]
+    md = d["report"]["markdown"]
+    assert "사후 검증" in md and "다른 모델 포트폴리오" in md
+    bt = client.get("/api/backtest").json()
+    assert bt["n_cases"] >= 1 and bt["cases"][0]["run_id"] == rid
+    ev = next(e for e in client.get("/api/events?country=US").json() if e["event_id"] == "ev_hist_2022_us_chip_export")
+    assert ev["last_run"]["run_id"] == rid and ev["last_run"]["actual_pnl"] is not None
+    m = client.get("/api/meta").json()
+    assert m["radar"]["backtest"]["n_cases"] >= 1 and "quality_issues" in m["radar"]
+
+
+def test_auto_analyze_picks_recent_high_events(client):
+    from datetime import date
+
+    from app import auto_analyze, db
+    from app.models.tables import PolicyEvent, Run
+
+    with db.session_scope() as s:
+        s.merge(PolicyEvent(event_id="ev_auto_test", country="KR", type="tariff", title="자동 분석 테스트 관세 10%", summary="t",
+                            targets=["steel"], value=10.0, value_text="관세율 10%", announced_at=date.today(), source="test",
+                            source_url="", license="", raw_text="철강 관세 10% 부과", is_demo=False, relevance="high"))
+    res = auto_analyze.auto_analyze(max_runs=1, days=7)
+    assert res["started"] == 1 and res["done"] == 1
+    with db.session_scope() as s:
+        run = s.scalars(__import__("sqlalchemy").select(Run).where(Run.event_id == "ev_auto_test")).one()
+        assert run.state.get("auto") is True and run.status in ("done", "partial")
+        assert run.state["result"]["actual"] is None  # 오늘 발표 → 아직 실제 데이터 없음
+    # 이미 분석된 이벤트는 다시 고르지 않는다
+    assert auto_analyze.auto_analyze(max_runs=5, days=7)["started"] == 0
+    assert client.get("/api/admin/analyze/run?token=x").status_code in (403, 404)

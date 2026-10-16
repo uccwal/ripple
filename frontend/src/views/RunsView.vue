@@ -72,7 +72,7 @@ onMounted(() => void history.load())
 
       <div v-for="r in runs" v-else :key="r.run_id" class="grid items-center gap-4 border-t border-line-subtle px-5 py-3 text-small" :class="GRID" role="row">
         <span class="tnum text-ink-2">{{ formatDateTime(r.created_at) }}</span>
-        <span><RpBadge variant="entry">{{ ENTRY_SHORT[r.entry] }}</RpBadge></span>
+        <span class="flex gap-1"><RpBadge variant="entry">{{ ENTRY_SHORT[r.entry] }}</RpBadge><RpBadge v-if="r.auto" variant="virtual" tooltip="수집 직후 자동 사전분석">자동</RpBadge></span>
         <span class="ellipsis font-semibold" :title="r.title">{{ r.title }}</span>
         <span class="ellipsis text-ink-2">{{ r.portfolio_name }}</span>
         <CalcNum

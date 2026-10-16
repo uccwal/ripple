@@ -23,7 +23,7 @@ from . import runner
 from .agents import event_analyst, impact_mapper, report_writer, scenario_builder, validator
 from .config import settings
 from .db import SessionLocal
-from .engine import risk
+from .engine import outcome, risk
 from .engine.catalog import FACTOR_BY_ID
 from .llm import LLMError
 from .util import utcnow
@@ -125,6 +125,17 @@ def build(rc: RunContext):
         try:
             shocks = {s["variable"]: s["change"] for s in state["scenario"]["shocks"]}
             out = risk.compute(ctx, shocks, rc.regimes, state["run_id"])
+            # 사후 검증(발표일이 과거면 실제 움직임과 비교) · 다른 포트폴리오 비교 — 모두 엔진 계산
+            ev = state.get("event") or {}
+            actual = None
+            if ev.get("announced_at"):
+                try:
+                    actual = outcome.actual_outcome(rc.session, ctx.holdings, date.fromisoformat(ev["announced_at"]),
+                                                    ctx.horizon, shocks, out["result"]["portfolio_pnl"])
+                except Exception as e:  # noqa: BLE001  사후 검증은 보조 정보라 실패해도 분석을 멈추지 않는다
+                    log.warning("사후 검증 계산 실패: %s", e)
+            cross = outcome.cross_portfolio(rc.session, ctx.portfolio.portfolio_id, ctx.as_of, ctx.horizon, shocks, state["run_id"])
+            risk.attach_extras(out, ctx, actual, cross)
         except Exception as e:
             rc.steps.fail(step, str(e))
             raise
@@ -134,7 +145,13 @@ def build(rc: RunContext):
                                outputs={"outputs": calc["outputs"], "entries": calc["entries"]}))
         rc.session.commit()
         from .engine import fmt
-        rc.steps.finish(step, {"summary": f"ΔP {fmt.signed(out['result']['portfolio_pnl'])} · {calc['calc_id']}"}, "engine (LLM 없음)")
+        extra = []
+        if actual and actual.get("portfolio_pnl") is not None:
+            extra.append(f"실제 {fmt.signed(actual['portfolio_pnl'])}" + ("" if actual["complete"] else " (잠정)"))
+        if len(out["result"]["cross_portfolio"]) > 1:
+            extra.append(f"포트폴리오 {len(out['result']['cross_portfolio'])}개 비교")
+        rc.steps.finish(step, {"summary": f"ΔP {fmt.signed(out['result']['portfolio_pnl'])} · {calc['calc_id']}"}, "engine (LLM 없음)",
+                        note=" · ".join(extra))
         return {"result": out["result"], "calc_log": calc}
 
     def node_validator(state: RunState) -> dict:

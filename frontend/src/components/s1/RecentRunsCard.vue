@@ -6,7 +6,7 @@ import CalcNum from '@/components/common/CalcNum.vue'
 import SkeletonBar from '@/components/common/SkeletonBar.vue'
 import { useHistoryStore } from '@/stores/history'
 import { formatDateTime } from '@/utils/format'
-import { ENTRY_SHORT } from '@/utils/labels'
+import { AUTO_RUN_TIP, ENTRY_SHORT } from '@/utils/labels'
 
 const router = useRouter()
 const history = useHistoryStore()
@@ -48,7 +48,9 @@ function open(id: string): void {
       >
         <div class="min-w-0 flex-1">
           <div class="ellipsis text-small font-semibold">{{ r.title }}</div>
-          <div class="tnum text-caption font-normal text-ink-3">{{ formatDateTime(r.created_at) }} · {{ ENTRY_SHORT[r.entry] }}</div>
+          <div class="tnum text-caption font-normal text-ink-3">
+            {{ formatDateTime(r.created_at) }} · {{ ENTRY_SHORT[r.entry] }}<span v-if="r.auto" class="text-navy-700" :title="AUTO_RUN_TIP"> · 자동</span>
+          </div>
         </div>
         <CalcNum class="text-[15px] font-bold" :value="r.portfolio_pnl" :interactive="false" />
       </div>
